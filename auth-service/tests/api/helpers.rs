@@ -29,7 +29,7 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn sign_up(&self) -> Response {
+    pub async fn post_sign_up(&self) -> Response {
         self.client
             .post(&format!("{}/signup", &self.address))
             .send()
@@ -37,7 +37,7 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn login(&self) -> Response {
+    pub async fn post_login(&self) -> Response {
         self.client
             .post(&format!("{}/login", &self.address))
             .send()
@@ -45,7 +45,7 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn verify_2fa(&self) -> Response {
+    pub async fn post_verify_2fa(&self) -> Response {
         self.client
             .post(&format!("{}/verify-2fa", &self.address))
             .send()
@@ -53,7 +53,7 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn logout(&self) -> Response {
+    pub async fn post_logout(&self) -> Response {
         self.client
             .post(&format!("{}/logout", &self.address))
             .send()
@@ -61,7 +61,7 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn verify_token(&self) -> Response {
+    pub async fn post_verify_token(&self) -> Response {
         self.client
             .post(&format!("{}/verify-token", &self.address))
             .send()
