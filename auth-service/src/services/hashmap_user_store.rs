@@ -11,7 +11,7 @@ pub enum UserStoreError {
 }
 
 #[derive(Default)]
-struct HashMapUserStore {
+pub struct HashMapUserStore {
     users: HashMap<String, User>,
 }
 
@@ -53,11 +53,11 @@ mod tests {
     fn should_add_user() -> Result<(), UserStoreError> {
         let mut store = HashMapUserStore::default();
 
-        let user = User {
-            email: "example@email.com".to_owned(),
-            password: "password123".to_owned(),
-            requires_2fa: false,
-        };
+        let user = User::new(
+            "example@email.com".to_owned(),
+            "password123".to_owned(),
+            false,
+        );
 
         store.add_user(user.clone())?;
 
@@ -75,11 +75,11 @@ mod tests {
     fn should_get_user() -> Result<(), UserStoreError> {
         let mut store = HashMapUserStore::default();
 
-        let user = User {
-            email: "example@email.com".to_owned(),
-            password: "password123".to_owned(),
-            requires_2fa: false,
-        };
+        let user = User::new(
+            "example@email.com".to_owned(),
+            "password123".to_owned(),
+            false,
+        );
 
         store.add_user(user.clone())?;
 
@@ -106,11 +106,11 @@ mod tests {
     fn should_validate_user() -> Result<(), UserStoreError> {
         let mut store = HashMapUserStore::default();
 
-        let user = User {
-            email: "example@email.com".to_owned(),
-            password: "password123".to_owned(),
-            requires_2fa: false,
-        };
+        let user = User::new(
+            "example@email.com".to_owned(),
+            "password123".to_owned(),
+            false,
+        );
 
         store.add_user(user.clone())?;
 
@@ -121,11 +121,11 @@ mod tests {
     fn should_not_validate_invalid_credentials() {
         let mut store = HashMapUserStore::default();
 
-        let user = User {
-            email: "example@email.com".to_owned(),
-            password: "password123".to_owned(),
-            requires_2fa: false,
-        };
+        let user = User::new(
+            "example@email.com".to_owned(),
+            "password123".to_owned(),
+            false,
+        );
 
         store.add_user(user.clone()).unwrap();
 

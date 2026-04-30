@@ -6,7 +6,7 @@ pub struct User {
 }
 
 impl User {
-    fn new(email: String, password: String, requires_2fa: bool) -> Self {
+    pub fn new(email: String, password: String, requires_2fa: bool) -> Self {
         Self {
             email,
             password,
