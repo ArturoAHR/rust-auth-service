@@ -1,4 +1,4 @@
-use axum::http::request;
+use auth_service::routes::SignUpResponse;
 use serde_json::json;
 
 use crate::helpers::{get_random_email, TestApp};
@@ -61,4 +61,16 @@ async fn should_return_201_if_valid_input() {
         "Didn't successfully signup user {:?}",
         request_body
     );
+
+    let expected_response = SignUpResponse {
+        message: "User created successfully".to_owned(),
+    };
+
+    assert_eq!(
+        response
+            .json::<SignUpResponse>()
+            .await
+            .expect("Could not deserialize response body."),
+        expected_response
+    )
 }
