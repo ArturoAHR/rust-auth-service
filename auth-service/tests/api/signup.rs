@@ -1,3 +1,4 @@
+use axum::http::request;
 use serde_json::json;
 
 use crate::helpers::{get_random_email, TestApp};
@@ -38,4 +39,26 @@ async fn should_return_422_if_malformed_input() {
             test_case
         );
     }
+}
+
+#[tokio::test]
+async fn should_return_201_if_valid_input() {
+    let app = TestApp::new().await;
+
+    let random_email = get_random_email();
+
+    let request_body = json!({
+        "email": random_email,
+        "password": "password123",
+        "requires2FA": true
+    });
+
+    let response = app.post_sign_up(&request_body).await;
+
+    assert_eq!(
+        response.status().as_u16(),
+        201,
+        "Didn't successfully signup user {:?}",
+        request_body
+    );
 }
