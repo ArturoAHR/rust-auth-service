@@ -4,7 +4,9 @@ use axum::{http::StatusCode, response::IntoResponse, routing::post, serve::Serve
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
 
+pub mod domain;
 pub mod routes;
+pub mod services;
 
 pub struct Application {
     server: Serve<TcpListener, Router, Router>,
