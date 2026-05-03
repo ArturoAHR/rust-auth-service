@@ -1,14 +1,23 @@
 use std::{error::Error, sync::Arc};
 
-use axum::{routing::post, serve::Serve, Router};
+use axum::{
+    http::status::StatusCode,
+    response::{IntoResponse, Response},
+    routing::post,
+    serve::Serve,
+    Json, Router,
+};
+
+use serde::{Deserialize, Serialize};
 use tokio::{net::TcpListener, sync::RwLock};
 use tower_http::services::ServeDir;
-
-use crate::services::hashmap_user_store::HashMapUserStore;
 
 pub mod domain;
 pub mod routes;
 pub mod services;
+
+use domain::AuthApiError;
+use services::hashmap_user_store::HashMapUserStore;
 
 pub type AppStateUserStore = Arc<RwLock<HashMapUserStore>>;
 
@@ -27,6 +36,29 @@ pub struct Application {
     server: Serve<TcpListener, Router, Router>,
 
     pub address: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ErrorResponse {
+    pub error: String,
+}
+
+impl IntoResponse for AuthApiError {
+    fn into_response(self) -> Response {
+        let (status, error_message) = match self {
+            AuthApiError::UserAlreadyExists => (StatusCode::CONFLICT, "User already exists"),
+            AuthApiError::InvalidCredentials => (StatusCode::BAD_REQUEST, "Invalid credentials"),
+            AuthApiError::UnexpectedError => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
+            }
+        };
+
+        let body = Json(ErrorResponse {
+            error: error_message.to_string(),
+        });
+
+        (status, body).into_response()
+    }
 }
 
 impl Application {
