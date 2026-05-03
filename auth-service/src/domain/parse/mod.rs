@@ -1,2 +1,5 @@
-pub mod email;
-pub mod password;
+mod email;
+mod password;
+
+pub use email::*;
+pub use password::*;

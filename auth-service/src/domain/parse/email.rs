@@ -1,9 +1,10 @@
 #[derive(Debug, PartialEq)]
-enum EmailParseError {
+pub enum EmailParseError {
     InvalidEmail,
     EmptyEmail,
 }
 
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct Email(String);
 
 impl Email {

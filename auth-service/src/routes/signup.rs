@@ -2,7 +2,10 @@ use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    domain::{AuthApiError, User},
+    domain::{
+        parse::{Email, Password},
+        AuthApiError, User,
+    },
     AppState,
 };
 
@@ -18,16 +21,9 @@ pub async fn sign_up(
     State(state): State<AppState>,
     Json(request): Json<SignUpRequest>,
 ) -> Result<impl IntoResponse, AuthApiError> {
-    let email = request.email;
-    let password = request.password;
-
-    if email.len() == 0usize || !email.contains("@") {
-        return Err(AuthApiError::InvalidCredentials);
-    }
-
-    if password.len() < 8 {
-        return Err(AuthApiError::InvalidCredentials);
-    }
+    let email = Email::parse(request.email).map_err(|_| AuthApiError::InvalidCredentials)?;
+    let password =
+        Password::parse(request.password).map_err(|_| AuthApiError::InvalidCredentials)?;
 
     let mut user_store = state.user_store.write().await;
 

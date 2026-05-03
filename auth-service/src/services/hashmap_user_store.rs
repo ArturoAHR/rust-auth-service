@@ -1,10 +1,13 @@
 use std::collections::HashMap;
 
-use crate::domain::{User, UserStore, UserStoreError};
+use crate::domain::{
+    parse::{Email, Password},
+    User, UserStore, UserStoreError,
+};
 
 #[derive(Default)]
 pub struct HashMapUserStore {
-    users: HashMap<String, User>,
+    users: HashMap<Email, User>,
 }
 
 #[async_trait::async_trait]
@@ -19,7 +22,7 @@ impl UserStore for HashMapUserStore {
         Ok(())
     }
 
-    async fn get_user(&self, email: &str) -> Result<User, UserStoreError> {
+    async fn get_user(&self, email: &Email) -> Result<User, UserStoreError> {
         if let Some(found_user) = self.users.get(email) {
             return Ok(found_user.clone());
         }
@@ -27,10 +30,14 @@ impl UserStore for HashMapUserStore {
         Err(UserStoreError::UserNotFound)
     }
 
-    async fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
+    async fn validate_user(
+        &self,
+        email: &Email,
+        password: &Password,
+    ) -> Result<(), UserStoreError> {
         let user = self.get_user(email).await?;
 
-        if password != user.password {
+        if *password != user.password {
             return Err(UserStoreError::InvalidCredentials);
         }
 
@@ -47,8 +54,8 @@ mod tests {
         let mut store = HashMapUserStore::default();
 
         let user = User::new(
-            "example@email.com".to_owned(),
-            "password123".to_owned(),
+            Email::parse("example@email.com".to_owned()).unwrap(),
+            Password::parse("password123".to_owned()).unwrap(),
             false,
         );
 
@@ -69,8 +76,8 @@ mod tests {
         let mut store = HashMapUserStore::default();
 
         let user = User::new(
-            "example@email.com".to_owned(),
-            "password123".to_owned(),
+            Email::parse("example@email.com".to_owned()).unwrap(),
+            Password::parse("password123".to_owned()).unwrap(),
             false,
         );
 
@@ -87,7 +94,9 @@ mod tests {
     async fn should_fail_to_get_non_existing_user() {
         let store = HashMapUserStore::default();
 
-        let user_retrieval_result = store.get_user("example@email.com").await;
+        let non_existing_user_email = Email::parse("example@email".to_owned()).unwrap();
+
+        let user_retrieval_result = store.get_user(&non_existing_user_email).await;
 
         assert_eq!(
             user_retrieval_result.err().unwrap(),
@@ -100,8 +109,8 @@ mod tests {
         let mut store = HashMapUserStore::default();
 
         let user = User::new(
-            "example@email.com".to_owned(),
-            "password123".to_owned(),
+            Email::parse("example@email.com".to_owned()).unwrap(),
+            Password::parse("password123".to_owned()).unwrap(),
             false,
         );
 
@@ -115,14 +124,16 @@ mod tests {
         let mut store = HashMapUserStore::default();
 
         let user = User::new(
-            "example@email.com".to_owned(),
-            "password123".to_owned(),
+            Email::parse("example@email.com".to_owned()).unwrap(),
+            Password::parse("password123".to_owned()).unwrap(),
             false,
         );
 
         store.add_user(user.clone()).await.unwrap();
 
-        let validation_result = store.validate_user(&user.email, "another password").await;
+        let incorrect_password = Password::parse("another password".to_owned()).unwrap();
+
+        let validation_result = store.validate_user(&user.email, &incorrect_password).await;
 
         assert_eq!(
             validation_result.err().unwrap(),
@@ -134,7 +145,12 @@ mod tests {
     async fn should_fail_to_validate_non_existing_user() {
         let store = HashMapUserStore::default();
 
-        let validation_result = store.validate_user("example@email", "password123").await;
+        let non_existing_user_email = Email::parse("example@email".to_owned()).unwrap();
+        let non_existing_user_password = Password::parse("password123".to_owned()).unwrap();
+
+        let validation_result = store
+            .validate_user(&non_existing_user_email, &non_existing_user_password)
+            .await;
 
         assert_eq!(
             validation_result.err().unwrap(),

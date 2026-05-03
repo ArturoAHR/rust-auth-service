@@ -1,8 +1,9 @@
 #[derive(Debug, PartialEq)]
-enum PasswordParseError {
+pub enum PasswordParseError {
     InsufficientLength,
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct Password(String);
 
 impl Password {
