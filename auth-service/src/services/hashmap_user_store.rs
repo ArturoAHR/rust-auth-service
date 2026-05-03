@@ -1,22 +1,15 @@
 use std::collections::HashMap;
 
-use crate::domain::User;
-
-#[derive(Debug, PartialEq)]
-pub enum UserStoreError {
-    UserAlreadyExists,
-    UserNotFound,
-    InvalidCredentials,
-    UnexpectedError,
-}
+use crate::domain::{User, UserStore, UserStoreError};
 
 #[derive(Default)]
 pub struct HashMapUserStore {
     users: HashMap<String, User>,
 }
 
-impl HashMapUserStore {
-    pub fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
+#[async_trait::async_trait]
+impl UserStore for HashMapUserStore {
+    async fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
         if let Some(_) = self.users.get(&user.email) {
             return Err(UserStoreError::UserAlreadyExists);
         }
@@ -26,7 +19,7 @@ impl HashMapUserStore {
         Ok(())
     }
 
-    pub fn get_user(&self, email: &str) -> Result<User, UserStoreError> {
+    async fn get_user(&self, email: &str) -> Result<User, UserStoreError> {
         if let Some(found_user) = self.users.get(email) {
             return Ok(found_user.clone());
         }
@@ -34,8 +27,8 @@ impl HashMapUserStore {
         Err(UserStoreError::UserNotFound)
     }
 
-    pub fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
-        let user = self.get_user(email)?;
+    async fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
+        let user = self.get_user(email).await?;
 
         if password != user.password {
             return Err(UserStoreError::InvalidCredentials);
@@ -49,8 +42,8 @@ impl HashMapUserStore {
 mod tests {
     use super::*;
 
-    #[test]
-    fn should_add_user() -> Result<(), UserStoreError> {
+    #[tokio::test]
+    async fn should_add_user() -> Result<(), UserStoreError> {
         let mut store = HashMapUserStore::default();
 
         let user = User::new(
@@ -59,7 +52,7 @@ mod tests {
             false,
         );
 
-        store.add_user(user.clone())?;
+        store.add_user(user.clone()).await?;
 
         let retrieved_user = store
             .users
@@ -71,8 +64,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn should_get_user() -> Result<(), UserStoreError> {
+    #[tokio::test]
+    async fn should_get_user() -> Result<(), UserStoreError> {
         let mut store = HashMapUserStore::default();
 
         let user = User::new(
@@ -81,20 +74,20 @@ mod tests {
             false,
         );
 
-        store.add_user(user.clone())?;
+        store.add_user(user.clone()).await?;
 
-        let retrieved_user = store.get_user(&user.email)?;
+        let retrieved_user = store.get_user(&user.email).await?;
 
         assert_eq!(retrieved_user, user);
 
         Ok(())
     }
 
-    #[test]
-    fn should_fail_to_get_non_existing_user() {
+    #[tokio::test]
+    async fn should_fail_to_get_non_existing_user() {
         let store = HashMapUserStore::default();
 
-        let user_retrieval_result = store.get_user("example@email.com");
+        let user_retrieval_result = store.get_user("example@email.com").await;
 
         assert_eq!(
             user_retrieval_result.err().unwrap(),
@@ -102,8 +95,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn should_validate_user() -> Result<(), UserStoreError> {
+    #[tokio::test]
+    async fn should_validate_user() -> Result<(), UserStoreError> {
         let mut store = HashMapUserStore::default();
 
         let user = User::new(
@@ -112,13 +105,13 @@ mod tests {
             false,
         );
 
-        store.add_user(user.clone())?;
+        store.add_user(user.clone()).await?;
 
-        store.validate_user(&user.email, &user.password)
+        store.validate_user(&user.email, &user.password).await
     }
 
-    #[test]
-    fn should_not_validate_invalid_credentials() {
+    #[tokio::test]
+    async fn should_not_validate_invalid_credentials() {
         let mut store = HashMapUserStore::default();
 
         let user = User::new(
@@ -127,9 +120,9 @@ mod tests {
             false,
         );
 
-        store.add_user(user.clone()).unwrap();
+        store.add_user(user.clone()).await.unwrap();
 
-        let validation_result = store.validate_user(&user.email, "another password");
+        let validation_result = store.validate_user(&user.email, "another password").await;
 
         assert_eq!(
             validation_result.err().unwrap(),
@@ -137,11 +130,11 @@ mod tests {
         );
     }
 
-    #[test]
-    fn should_fail_to_validate_non_existing_user() {
+    #[tokio::test]
+    async fn should_fail_to_validate_non_existing_user() {
         let store = HashMapUserStore::default();
 
-        let validation_result = store.validate_user("example@email", "password123");
+        let validation_result = store.validate_user("example@email", "password123").await;
 
         assert_eq!(
             validation_result.err().unwrap(),

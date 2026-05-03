@@ -31,7 +31,7 @@ pub async fn sign_up(
 
     let mut user_store = state.user_store.write().await;
 
-    if let Ok(_) = user_store.get_user(&email) {
+    if let Ok(_) = user_store.get_user(&email).await {
         return Err(AuthApiError::UserAlreadyExists);
     }
 
@@ -39,6 +39,7 @@ pub async fn sign_up(
 
     user_store
         .add_user(user)
+        .await
         .map_err(|_| AuthApiError::UnexpectedError)?;
 
     let response = Json(SignUpResponse {

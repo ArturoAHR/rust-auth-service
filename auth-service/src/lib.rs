@@ -17,9 +17,10 @@ pub mod routes;
 pub mod services;
 
 use domain::AuthApiError;
-use services::hashmap_user_store::HashMapUserStore;
 
-pub type AppStateUserStore = Arc<RwLock<HashMapUserStore>>;
+use crate::domain::UserStore;
+
+pub type AppStateUserStore = Arc<RwLock<dyn UserStore>>;
 
 #[derive(Clone)]
 pub struct AppState {
