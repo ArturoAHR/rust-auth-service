@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use auth_service::{services::hashmap_user_store::HashMapUserStore, AppState, Application};
+use auth_service::{
+    services::hashmap_user_store::HashMapUserStore, utils::constants::test::APP_ADDRESS, AppState,
+    Application,
+};
 use reqwest::{cookie::Jar, Client, Response};
 use serde::Serialize;
 use tokio::sync::RwLock;
@@ -17,7 +20,7 @@ impl TestApp {
         let user_store = Arc::new(RwLock::new(HashMapUserStore::default()));
         let app_state = AppState::new(user_store);
 
-        let app = Application::build(app_state, "127.0.0.1:0")
+        let app = Application::build(app_state, APP_ADDRESS)
             .await
             .expect("Failed to build app");
 
