@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
 use auth_service::{services::hashmap_user_store::HashMapUserStore, AppState, Application};
-use reqwest::{Client, Response};
+use reqwest::{cookie::Jar, Client, Response};
 use serde::Serialize;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
 pub struct TestApp {
     pub address: String,
+    pub cookie_jar: Arc<Jar>,
     pub client: Client,
 }
 
@@ -24,9 +25,17 @@ impl TestApp {
 
         let _ = tokio::spawn(app.run());
 
-        let client = Client::new();
+        let cookie_jar = Arc::new(Jar::default());
+        let client = Client::builder()
+            .cookie_provider(cookie_jar.clone())
+            .build()
+            .unwrap();
 
-        TestApp { address, client }
+        TestApp {
+            address,
+            cookie_jar,
+            client,
+        }
     }
 
     pub async fn get_root(&self) -> Response {

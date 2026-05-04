@@ -3,4 +3,6 @@ pub enum AuthApiError {
     InvalidCredentials,
     UnexpectedError,
     IncorrectCredentials,
+    MissingToken,
+    InvalidToken,
 }
