@@ -15,6 +15,7 @@ use tower_http::services::ServeDir;
 pub mod domain;
 pub mod routes;
 pub mod services;
+pub mod utils;
 
 use domain::AuthApiError;
 
