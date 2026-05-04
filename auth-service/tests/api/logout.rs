@@ -118,4 +118,13 @@ async fn should_return_400_if_logout_called_twice_in_a_row() {
         400,
         "Should have removed JWT from cookie jar"
     );
+
+    assert_eq!(
+        response
+            .json::<ErrorResponse>()
+            .await
+            .expect("Could not deserialize response body to Error Response")
+            .error,
+        "Missing token",
+    )
 }

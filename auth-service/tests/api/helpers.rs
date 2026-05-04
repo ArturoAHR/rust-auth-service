@@ -89,9 +89,13 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn post_verify_token(&self) -> Response {
+    pub async fn post_verify_token<Body>(&self, body: &Body) -> Response
+    where
+        Body: Serialize,
+    {
         self.client
             .post(&format!("{}/verify-token", &self.address))
+            .json(body)
             .send()
             .await
             .expect("Failed to execute request.")
