@@ -99,6 +99,15 @@ async fn should_return_401_if_incorrect_credentials() {
         401,
         "Authentication should have failed"
     );
+
+    assert_eq!(
+        response
+            .json::<ErrorResponse>()
+            .await
+            .expect("Could not deserialize response body to Error Response")
+            .error,
+        "Incorrect credentials".to_owned()
+    )
 }
 
 #[tokio::test]
