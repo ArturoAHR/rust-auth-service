@@ -52,6 +52,9 @@ impl IntoResponse for AuthApiError {
             AuthApiError::UnexpectedError => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
             }
+            AuthApiError::IncorrectCredentials => {
+                (StatusCode::UNAUTHORIZED, "Incorrect credentials")
+            }
         };
 
         let body = Json(ErrorResponse {

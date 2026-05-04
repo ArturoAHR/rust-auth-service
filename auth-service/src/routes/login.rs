@@ -23,5 +23,17 @@ pub async fn login(
     let password =
         Password::parse(request.password).map_err(|_| AuthApiError::InvalidCredentials)?;
 
+    let user_store = &state.user_store.read().await;
+
+    user_store
+        .validate_user(&email, &password)
+        .await
+        .map_err(|_| AuthApiError::IncorrectCredentials)?;
+
+    user_store
+        .get_user(&email)
+        .await
+        .map_err(|_| AuthApiError::IncorrectCredentials)?;
+
     Ok(StatusCode::OK.into_response())
 }
