@@ -1,7 +1,7 @@
 use std::{error::Error, sync::Arc};
 
 use axum::{
-    http::status::StatusCode,
+    http::{status::StatusCode, Method},
     response::{IntoResponse, Response},
     routing::post,
     serve::Serve,
@@ -10,7 +10,7 @@ use axum::{
 
 use serde::{Deserialize, Serialize};
 use tokio::{net::TcpListener, sync::RwLock};
-use tower_http::services::ServeDir;
+use tower_http::{cors::CorsLayer, services::ServeDir};
 
 pub mod domain;
 pub mod routes;
@@ -71,6 +71,14 @@ impl IntoResponse for AuthApiError {
 impl Application {
     pub async fn build(app_state: AppState, address: &str) -> Result<Self, Box<dyn Error>> {
         let assets_dir = ServeDir::new("assets");
+
+        let allowed_origins = ["http://localhost:8000".parse()?];
+
+        let cors = CorsLayer::new()
+            .allow_methods([Method::GET, Method::POST])
+            .allow_credentials(true)
+            .allow_origin(allowed_origins);
+
         let router = Router::new()
             .fallback_service(assets_dir)
             .route("/signup", post(routes::sign_up))
@@ -78,7 +86,8 @@ impl Application {
             .route("/verify-2fa", post(routes::verify_2fa))
             .route("/logout", post(routes::logout))
             .route("/verify-token", post(routes::verify_token))
-            .with_state(app_state);
+            .with_state(app_state)
+            .layer(cors);
 
         let listener = TcpListener::bind(address).await?;
         let address = listener.local_addr()?.to_string();
