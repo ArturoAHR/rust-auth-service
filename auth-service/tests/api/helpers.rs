@@ -49,9 +49,13 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn post_login(&self) -> Response {
+    pub async fn post_login<Body>(&self, body: &Body) -> Response
+    where
+        Body: Serialize,
+    {
         self.client
             .post(&format!("{}/login", &self.address))
+            .json(body)
             .send()
             .await
             .expect("Failed to execute request.")
