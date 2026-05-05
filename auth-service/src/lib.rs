@@ -19,18 +19,26 @@ pub mod utils;
 
 use domain::AuthApiError;
 
-use crate::domain::UserStore;
+use crate::domain::{BannedTokenStore, UserStore};
 
 pub type AppStateUserStore = Arc<RwLock<dyn UserStore>>;
+pub type AppStateBannedTokenStore = Arc<RwLock<dyn BannedTokenStore>>;
 
 #[derive(Clone)]
 pub struct AppState {
     pub user_store: AppStateUserStore,
+    pub banned_token_store: AppStateBannedTokenStore,
 }
 
 impl AppState {
-    pub fn new(user_store: AppStateUserStore) -> Self {
-        Self { user_store }
+    pub fn new(
+        user_store: AppStateUserStore,
+        banned_token_store: AppStateBannedTokenStore,
+    ) -> Self {
+        Self {
+            user_store,
+            banned_token_store,
+        }
     }
 }
 

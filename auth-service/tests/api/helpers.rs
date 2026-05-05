@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
 use auth_service::{
-    services::hashmap_user_store::HashMapUserStore, utils::constants::test::APP_ADDRESS, AppState,
-    Application,
+    services::{
+        hashmap_user_store::HashMapUserStore, hashset_banned_token_store::HashSetBannedTokenStore,
+    },
+    utils::constants::test::APP_ADDRESS,
+    AppState, Application,
 };
 use reqwest::{cookie::Jar, Client, Response};
 use serde::Serialize;
@@ -18,7 +21,9 @@ pub struct TestApp {
 impl TestApp {
     pub async fn new() -> Self {
         let user_store = Arc::new(RwLock::new(HashMapUserStore::default()));
-        let app_state = AppState::new(user_store);
+        let banned_token_store = Arc::new(RwLock::new(HashSetBannedTokenStore::default()));
+
+        let app_state = AppState::new(user_store, banned_token_store);
 
         let app = Application::build(app_state, APP_ADDRESS)
             .await

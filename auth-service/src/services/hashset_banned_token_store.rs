@@ -3,12 +3,12 @@ use std::collections::HashSet;
 use crate::domain::{BannedTokenStore, BannedTokenStoreError};
 
 #[derive(Default)]
-pub struct HashsetBannedTokenStore {
+pub struct HashSetBannedTokenStore {
     banned_tokens: HashSet<String>,
 }
 
 #[async_trait::async_trait]
-impl BannedTokenStore for HashsetBannedTokenStore {
+impl BannedTokenStore for HashSetBannedTokenStore {
     async fn ban_token(&mut self, token: &str) -> Result<(), BannedTokenStoreError> {
         self.banned_tokens.insert(token.to_owned());
 
@@ -28,7 +28,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_ban_token() {
-        let mut store = HashsetBannedTokenStore::default();
+        let mut store = HashSetBannedTokenStore::default();
 
         let token = "token";
 
@@ -41,7 +41,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_successfully_check_banned_token() {
-        let mut store = HashsetBannedTokenStore::default();
+        let mut store = HashSetBannedTokenStore::default();
 
         let token = "token";
 
@@ -54,7 +54,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_successfully_check_not_banned_token() {
-        let store = HashsetBannedTokenStore::default();
+        let store = HashSetBannedTokenStore::default();
 
         let token = "token";
 
