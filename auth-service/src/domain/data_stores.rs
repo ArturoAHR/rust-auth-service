@@ -16,3 +16,14 @@ pub trait UserStore: Send + Sync {
     async fn validate_user(&self, email: &Email, password: &Password)
         -> Result<(), UserStoreError>;
 }
+
+#[derive(Debug, PartialEq)]
+pub enum BannedTokenStoreError {
+    UnexpectedError,
+}
+
+#[async_trait::async_trait]
+pub trait BannedTokenStore: Send + Sync {
+    async fn ban_token(&mut self, token: &str) -> Result<(), BannedTokenStoreError>;
+    async fn check_if_token_is_banned(&self, token: &str) -> Result<bool, BannedTokenStoreError>;
+}
