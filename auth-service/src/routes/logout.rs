@@ -16,16 +16,13 @@ pub async fn logout(
         .ok_or(AuthApiError::MissingToken)?;
 
     let token = cookie.value().to_owned();
-    let banned_token_store = state.banned_token_store.read().await;
+    let mut banned_token_store = state.banned_token_store.write().await;
 
     validate_token(&token, &*banned_token_store)
         .await
         .map_err(|_| AuthApiError::InvalidToken)?;
 
     let jar = jar.remove(Cookie::from(JWT_COOKIE_NAME.to_owned()));
-
-    drop(banned_token_store);
-    let mut banned_token_store = state.banned_token_store.write().await;
 
     banned_token_store
         .ban_token(&token)
