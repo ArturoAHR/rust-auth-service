@@ -76,15 +76,38 @@ async fn should_return_200_if_valid_jwt_cookie() {
         "password": user_password.clone()
     });
 
-    let _ = app.post_login(&login_payload).await;
+    let login_response = app.post_login(&login_payload).await;
+
+    let token = login_response
+        .cookies()
+        .find_map(|cookie| {
+            if cookie.name() == JWT_COOKIE_NAME {
+                Some(cookie.value().to_owned())
+            } else {
+                None
+            }
+        })
+        .expect(&format!(
+            "No \"{}\" token found in cookie jar after login",
+            JWT_COOKIE_NAME
+        ));
 
     let response = app.post_logout().await;
+
+    let banned_token_store = app.banned_token_store.read().await;
+
+    let is_token_banned = banned_token_store
+        .check_if_token_is_banned(&token)
+        .await
+        .expect("Could not check if token is banned.");
 
     assert_eq!(
         response.status().as_u16(),
         200,
         "Logout should have succeeded"
     );
+
+    assert!(is_token_banned);
 }
 
 #[tokio::test]

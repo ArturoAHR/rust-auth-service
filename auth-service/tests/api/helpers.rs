@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use auth_service::{
+    domain::BannedTokenStore,
     services::{
         hashmap_user_store::HashMapUserStore, hashset_banned_token_store::HashSetBannedTokenStore,
     },
@@ -16,14 +17,16 @@ pub struct TestApp {
     pub address: String,
     pub cookie_jar: Arc<Jar>,
     pub client: Client,
+    pub banned_token_store: Arc<RwLock<dyn BannedTokenStore>>,
 }
 
 impl TestApp {
     pub async fn new() -> Self {
         let user_store = Arc::new(RwLock::new(HashMapUserStore::default()));
-        let banned_token_store = Arc::new(RwLock::new(HashSetBannedTokenStore::default()));
+        let banned_token_store: Arc<RwLock<dyn BannedTokenStore>> =
+            Arc::new(RwLock::new(HashSetBannedTokenStore::default()));
 
-        let app_state = AppState::new(user_store, banned_token_store);
+        let app_state = AppState::new(user_store, Arc::clone(&banned_token_store));
 
         let app = Application::build(app_state, APP_ADDRESS)
             .await
@@ -43,6 +46,7 @@ impl TestApp {
             address,
             cookie_jar,
             client,
+            banned_token_store,
         }
     }
 
