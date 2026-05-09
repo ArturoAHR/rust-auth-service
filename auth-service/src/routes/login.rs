@@ -17,6 +17,20 @@ pub struct LoginRequest {
     pub password: String,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum LoginResponse {
+    RegularAuth,
+    TwoFactorAuth(TwoFactorAuthResponse),
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TwoFactorAuthResponse {
+    pub message: String,
+    #[serde(rename = "loginAttemptId")]
+    pub login_attempt_id: String,
+}
+
 pub async fn login(
     State(state): State<AppState>,
     jar: CookieJar,
@@ -78,24 +92,21 @@ async fn handle_2fa(
         .await
         .map_err(|_| AuthApiError::UnexpectedError)?;
 
+    let email_client = state.email_client.read().await;
+
+    email_client
+        .send_email(
+            &email,
+            "Two Factor Authentication Code",
+            login_attempt_id.as_ref().into(),
+        )
+        .await
+        .map_err(|_| AuthApiError::UnexpectedError)?;
+
     let response = LoginResponse::TwoFactorAuth(TwoFactorAuthResponse {
         message: "2FA required".to_owned(),
         login_attempt_id: login_attempt_id.as_ref().into(),
     });
 
     Ok((jar, (StatusCode::PARTIAL_CONTENT, Json::from(response))))
-}
-
-#[derive(Debug, Serialize)]
-#[serde(untagged)]
-pub enum LoginResponse {
-    RegularAuth,
-    TwoFactorAuth(TwoFactorAuthResponse),
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TwoFactorAuthResponse {
-    pub message: String,
-    #[serde(rename = "loginAttemptId")]
-    pub login_attempt_id: String,
 }
