@@ -94,9 +94,13 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn post_verify_2fa(&self) -> Response {
+    pub async fn post_verify_2fa<Body>(&self, body: &Body) -> Response
+    where
+        Body: Serialize,
+    {
         self.client
             .post(&format!("{}/verify-2fa", &self.address))
+            .json(body)
             .send()
             .await
             .expect("Failed to execute request.")

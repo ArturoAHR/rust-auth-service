@@ -83,15 +83,15 @@ async fn should_return_401_if_incorrect_credentials() {
     let user_password = "password12345".to_owned();
 
     let sign_up_payload = json!({
-        "email": user_email.clone(),
-        "password": user_password.clone(),
+        "email": user_email,
+        "password": user_password,
         "requires2FA": false
     });
 
     let _ = app.post_sign_up(&sign_up_payload).await;
 
     let login_payload = json!({
-        "email": user_email.clone(),
+        "email": user_email,
         "password": "wrong-password"
     });
 
@@ -121,16 +121,16 @@ async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
     let user_password = "password12345".to_owned();
 
     let sign_up_payload = json!({
-        "email": user_email.clone(),
-        "password": user_password.clone(),
+        "email": user_email,
+        "password": user_password,
         "requires2FA": false
     });
 
     let _ = app.post_sign_up(&sign_up_payload).await;
 
     let login_payload = json!({
-        "email": user_email.clone(),
-        "password": user_password.clone()
+        "email": user_email,
+        "password": user_password
     });
 
     let response = app.post_login(&login_payload).await;
@@ -157,16 +157,16 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
     let user_password = "password12345".to_owned();
 
     let sign_up_payload = json!({
-        "email": user_email.clone(),
-        "password": user_password.clone(),
+        "email": user_email,
+        "password": user_password,
         "requires2FA": true
     });
 
     let _ = app.post_sign_up(&sign_up_payload).await;
 
     let login_payload = json!({
-        "email": user_email.clone(),
-        "password": user_password.clone()
+        "email": user_email,
+        "password": user_password
     });
 
     let response = app.post_login(&login_payload).await;

@@ -26,16 +26,16 @@ async fn should_return_200_if_token_is_valid() {
     let user_password = "password12345".to_owned();
 
     let sign_up_payload = json!({
-        "email": user_email.clone(),
-        "password": user_password.clone(),
+        "email": user_email,
+        "password": user_password,
         "requires2FA": false
     });
 
     let _ = app.post_sign_up(&sign_up_payload).await;
 
     let login_payload = json!({
-        "email": user_email.clone(),
-        "password": user_password.clone()
+        "email": user_email,
+        "password": user_password
     });
 
     let login_response = app.post_login(&login_payload).await;
@@ -102,16 +102,16 @@ async fn should_return_401_if_token_is_banned() {
     let user_password = "password12345".to_owned();
 
     let sign_up_payload = json!({
-        "email": user_email.clone(),
-        "password": user_password.clone(),
+        "email": user_email,
+        "password": user_password,
         "requires2FA": false
     });
 
     let _ = app.post_sign_up(&sign_up_payload).await;
 
     let login_payload = json!({
-        "email": user_email.clone(),
-        "password": user_password.clone()
+        "email": user_email,
+        "password": user_password
     });
 
     let login_response = app.post_login(&login_payload).await;
