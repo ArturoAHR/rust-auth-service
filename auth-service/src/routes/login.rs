@@ -87,7 +87,7 @@ async fn handle_2fa(
         .add_code(
             email.clone(),
             login_attempt_id.clone(),
-            two_factor_auth_code,
+            two_factor_auth_code.clone(),
         )
         .await
         .map_err(|_| AuthApiError::UnexpectedError)?;
@@ -98,7 +98,7 @@ async fn handle_2fa(
         .send_email(
             &email,
             "Two Factor Authentication Code",
-            login_attempt_id.as_ref().into(),
+            two_factor_auth_code.as_ref().into(),
         )
         .await
         .map_err(|_| AuthApiError::UnexpectedError)?;
