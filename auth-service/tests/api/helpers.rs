@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use auth_service::{
-    domain::BannedTokenStore,
+    domain::{BannedTokenStore, TwoFactorAuthCodeStore},
     services::{
+        hashmap_two_factor_auth_code_store::HashMapTwoFactorAuthCodeStore,
         hashmap_user_store::HashMapUserStore, hashset_banned_token_store::HashSetBannedTokenStore,
     },
     utils::constants::test::APP_ADDRESS,
@@ -18,6 +19,7 @@ pub struct TestApp {
     pub cookie_jar: Arc<Jar>,
     pub client: Client,
     pub banned_token_store: Arc<RwLock<dyn BannedTokenStore>>,
+    pub two_factor_auth_code_store: Arc<RwLock<dyn TwoFactorAuthCodeStore>>,
 }
 
 impl TestApp {
@@ -25,8 +27,14 @@ impl TestApp {
         let user_store = Arc::new(RwLock::new(HashMapUserStore::default()));
         let banned_token_store: Arc<RwLock<dyn BannedTokenStore>> =
             Arc::new(RwLock::new(HashSetBannedTokenStore::default()));
+        let two_factor_auth_code_store: Arc<RwLock<dyn TwoFactorAuthCodeStore>> =
+            Arc::new(RwLock::new(HashMapTwoFactorAuthCodeStore::default()));
 
-        let app_state = AppState::new(user_store, Arc::clone(&banned_token_store));
+        let app_state = AppState::new(
+            user_store,
+            Arc::clone(&banned_token_store),
+            Arc::clone(&two_factor_auth_code_store),
+        );
 
         let app = Application::build(app_state, APP_ADDRESS)
             .await
@@ -47,6 +55,7 @@ impl TestApp {
             cookie_jar,
             client,
             banned_token_store,
+            two_factor_auth_code_store,
         }
     }
 
