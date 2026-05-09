@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     domain::{
-        parse::{Email, Password},
+        parse::{Email, LoginAttemptId, Password, TwoFactorAuthCode},
         AuthApiError,
     },
     utils::auth::generate_auth_cookie,
@@ -39,15 +39,15 @@ pub async fn login(
         .map_err(|_| AuthApiError::IncorrectCredentials)?;
 
     if user.requires_2fa {
-        handle_2fa(jar).await
+        handle_2fa(&state, jar, &email).await
     } else {
-        handle_no_2fa(&email, jar).await
+        handle_no_2fa(jar, &email).await
     }
 }
 
 async fn handle_no_2fa(
-    email: &Email,
     jar: CookieJar,
+    email: &Email,
 ) -> Result<(CookieJar, (StatusCode, Json<LoginResponse>)), AuthApiError> {
     let auth_cookie = generate_auth_cookie(&email).map_err(|_| AuthApiError::UnexpectedError)?;
 
@@ -60,11 +60,27 @@ async fn handle_no_2fa(
 }
 
 async fn handle_2fa(
+    state: &AppState,
     jar: CookieJar,
+    email: &Email,
 ) -> Result<(CookieJar, (StatusCode, Json<LoginResponse>)), AuthApiError> {
+    let login_attempt_id = LoginAttemptId::default();
+    let two_factor_auth_code = TwoFactorAuthCode::default();
+
+    let mut two_factor_auth_code_store = state.two_factor_auth_code_store.write().await;
+
+    two_factor_auth_code_store
+        .add_code(
+            email.clone(),
+            login_attempt_id.clone(),
+            two_factor_auth_code,
+        )
+        .await
+        .map_err(|_| AuthApiError::UnexpectedError)?;
+
     let response = LoginResponse::TwoFactorAuth(TwoFactorAuthResponse {
         message: "2FA required".to_owned(),
-        login_attempt_id: "123456".to_owned(),
+        login_attempt_id: login_attempt_id.as_ref().into(),
     });
 
     Ok((jar, (StatusCode::PARTIAL_CONTENT, Json::from(response))))

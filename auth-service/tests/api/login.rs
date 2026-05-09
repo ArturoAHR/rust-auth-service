@@ -1,5 +1,6 @@
 use auth_service::{
-    routes::TwoFactorAuthResponse, utils::constants::JWT_COOKIE_NAME, ErrorResponse,
+    domain::parse::Email, routes::TwoFactorAuthResponse, utils::constants::JWT_COOKIE_NAME,
+    ErrorResponse,
 };
 use serde_json::json;
 
@@ -176,12 +177,22 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
         "Should have emitted 2FA attempt"
     );
 
-    assert_eq!(
-        response
-            .json::<TwoFactorAuthResponse>()
-            .await
-            .expect("Could not deserialize response body to TwoFactorAuthResponse")
-            .message,
-        "2FA required".to_owned()
-    )
+    let two_factor_auth_response = response
+        .json::<TwoFactorAuthResponse>()
+        .await
+        .expect("Could not deserialize response body to TwoFactorAuthResponse");
+
+    assert_eq!(two_factor_auth_response.message, "2FA required".to_owned());
+
+    let login_attempt_id = two_factor_auth_response.login_attempt_id;
+
+    let added_code_record = app
+        .two_factor_auth_code_store
+        .read()
+        .await
+        .get_code(&Email::parse(user_email).unwrap())
+        .await
+        .unwrap();
+
+    assert_eq!(login_attempt_id, added_code_record.0.as_ref())
 }
