@@ -1,4 +1,4 @@
-use crate::domain::parse::{Email, Password};
+use crate::domain::parse::{Email, LoginAttemptId, Password, TwoFactorAuthCode};
 use crate::domain::User;
 
 #[derive(Debug, PartialEq)]
@@ -26,4 +26,25 @@ pub enum BannedTokenStoreError {
 pub trait BannedTokenStore: Send + Sync {
     async fn ban_token(&mut self, token: &str) -> Result<(), BannedTokenStoreError>;
     async fn check_if_token_is_banned(&self, token: &str) -> Result<bool, BannedTokenStoreError>;
+}
+
+#[derive(Debug, PartialEq)]
+pub enum TwoFactorAuthCodeStoreError {
+    LoginAttemptIdNotFound,
+    UnexpectedError,
+}
+
+#[async_trait::async_trait]
+pub trait TwoFactorAuthCodeStore {
+    async fn add_code(
+        &mut self,
+        email: Email,
+        login_attempt_id: LoginAttemptId,
+        code: TwoFactorAuthCode,
+    ) -> Result<(), TwoFactorAuthCodeStoreError>;
+    async fn remove_code(&mut self, email: &Email) -> Result<(), TwoFactorAuthCodeStoreError>;
+    async fn get_code(
+        &self,
+        email: &Email,
+    ) -> Result<(LoginAttemptId, TwoFactorAuthCode), TwoFactorAuthCodeStoreError>;
 }
