@@ -15,7 +15,22 @@ fn get_jwt_secret() -> String {
     let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set.");
 
     if secret.is_empty() {
-        panic!("JWT_SECRET must not be empty.")
+        panic!("JWT_SECRET must not be empty.");
+    }
+
+    secret
+}
+lazy_static! {
+    pub static ref DATABASE_URL: String = get_database_url();
+}
+
+fn get_database_url() -> String {
+    dotenv().ok();
+
+    let secret = env::var("DATABASE_URL").expect("DATABASE_URL must be set.");
+
+    if secret.is_empty() {
+        panic!("DATABASE_URL must not be empty.");
     }
 
     secret
