@@ -191,3 +191,50 @@ async fn should_return_200_if_correct_code() {
 
     assert!(!auth_cookie.value().is_empty());
 }
+
+#[tokio::test]
+async fn should_return_401_if_same_code_is_used_twice() {
+    let app = TestApp::new().await;
+
+    let user_email = get_random_email();
+    let user_password = "password12345".to_owned();
+
+    let sign_up_payload = json!({
+        "email": user_email,
+        "password": user_password,
+        "requires2FA": true
+    });
+
+    let _ = app.post_sign_up(&sign_up_payload).await;
+
+    let login_payload = json!({
+        "email": user_email,
+        "password": user_password
+    });
+
+    let login_response = app.post_login(&login_payload).await;
+
+    let two_factor_code_store = app.two_factor_auth_code_store.read().await;
+
+    let login_attempt_id = login_response
+        .json::<TwoFactorAuthResponse>()
+        .await
+        .expect("Could not deserialize login response into TwoFactorAuthResponse")
+        .login_attempt_id;
+
+    let two_factor_code = two_factor_code_store
+        .get_code(&Email::parse(user_email.clone()).unwrap())
+        .await
+        .unwrap()
+        .1;
+
+    drop(two_factor_code_store);
+
+    let verify_2fa_payload = json!({"email": user_email, "loginAttemptId": login_attempt_id, "2FACode": two_factor_code.as_ref()});
+
+    let _ = app.post_verify_2fa(&verify_2fa_payload).await;
+
+    let response = app.post_verify_2fa(&verify_2fa_payload).await;
+
+    assert_eq!(response.status().as_u16(), 401);
+}

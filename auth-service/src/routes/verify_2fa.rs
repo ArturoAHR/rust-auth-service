@@ -31,7 +31,7 @@ pub async fn verify_2fa(
     let two_factor_auth_code = TwoFactorAuthCode::parse(request.two_factor_auth_code)
         .map_err(|_| AuthApiError::InvalidCredentials)?;
 
-    let two_factor_auth_code_store = state.two_factor_auth_code_store.write().await;
+    let mut two_factor_auth_code_store = state.two_factor_auth_code_store.write().await;
 
     let two_factor_auth_code_record = two_factor_auth_code_store
         .get_code(&email)
@@ -41,6 +41,11 @@ pub async fn verify_2fa(
     if two_factor_auth_code_record != (login_attempt_id, two_factor_auth_code) {
         return Err(AuthApiError::IncorrectCredentials);
     }
+
+    two_factor_auth_code_store
+        .remove_code(&email)
+        .await
+        .map_err(|_| AuthApiError::UnexpectedError)?;
 
     let auth_cookie = generate_auth_cookie(&email).map_err(|_| AuthApiError::UnexpectedError)?;
 
