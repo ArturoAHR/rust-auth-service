@@ -2,16 +2,18 @@ use std::sync::Arc;
 
 use auth_service::{
     domain::{BannedTokenStore, TwoFactorAuthCodeStore},
+    get_postgres_pool,
     services::{
         hashmap_two_factor_auth_code_store::HashMapTwoFactorAuthCodeStore,
         hashmap_user_store::HashMapUserStore, hashset_banned_token_store::HashSetBannedTokenStore,
-        mock_email_client::MockEmailClient,
+        mock_email_client::MockEmailClient, postgres_user_store::PostgresUserStore,
     },
-    utils::constants::test::APP_ADDRESS,
+    utils::constants::{test::APP_ADDRESS, DATABASE_URL},
     AppState, Application,
 };
 use reqwest::{cookie::Jar, Client, Response};
 use serde::Serialize;
+use sqlx::{postgres::PgPoolOptions, PgPool};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -25,7 +27,9 @@ pub struct TestApp {
 
 impl TestApp {
     pub async fn new() -> Self {
-        let user_store = Arc::new(RwLock::new(HashMapUserStore::default()));
+        let pg_pool = configure_postgresql().await;
+
+        let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
         let banned_token_store: Arc<RwLock<dyn BannedTokenStore>> =
             Arc::new(RwLock::new(HashSetBannedTokenStore::default()));
         let two_factor_auth_code_store: Arc<RwLock<dyn TwoFactorAuthCodeStore>> =
@@ -129,4 +133,42 @@ impl TestApp {
 
 pub fn get_random_email() -> String {
     format!("{}@example.com", Uuid::new_v4())
+}
+
+async fn configure_postgresql() -> PgPool {
+    let database_url = DATABASE_URL.to_owned();
+
+    let database_name = Uuid::new_v4().to_string();
+
+    configure_database(&database_url, &database_name).await;
+
+    let database_url_with_name = format!("{}/{}", database_url, database_name);
+
+    get_postgres_pool(&database_url_with_name)
+        .await
+        .expect("Failed to create Postgres connection pool.")
+}
+
+async fn configure_database(database_url: &str, database_name: &str) {
+    let pool = PgPoolOptions::new()
+        .connect(database_url)
+        .await
+        .expect("Failed to create Postgres connection pool.");
+
+    sqlx::query(format!(r#"CREATE DATABASE "{}";"#, database_name).as_str())
+        .execute(&pool)
+        .await
+        .expect("Failed to create database.");
+
+    let database_url_with_name = format!("{}/{}", database_url, database_name);
+
+    let pool = PgPoolOptions::new()
+        .connect(&database_url_with_name)
+        .await
+        .expect("Failed to create Postgres connection pool.");
+
+    sqlx::migrate!()
+        .run(&pool)
+        .await
+        .expect("Failed to migrate the database.");
 }
