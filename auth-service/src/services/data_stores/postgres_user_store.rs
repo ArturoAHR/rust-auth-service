@@ -1,7 +1,4 @@
-use std::ops::Deref;
-
-use argon2::password_hash;
-use sqlx::{postgres::PgRow, PgPool};
+use sqlx::PgPool;
 
 use crate::domain::{
     parse::{Email, HashedPassword},
@@ -34,27 +31,32 @@ impl UserStore for PostgresUserStore {
             Err(err) => Err(err.to_owned()),
         }?;
 
-        sqlx::query("INSERT INTO users (email, password_hash, requires_2fa) VALUES ($1, $2, $3)")
-            .bind(user.email.as_ref())
-            .bind(user.password.as_ref())
-            .bind(user.requires_2fa)
-            .execute(&self.pool)
-            .await
-            .map_err(|_| UserStoreError::UnexpectedError)?;
+        sqlx::query!(
+            "INSERT INTO users (email, password_hash, requires_2fa) VALUES ($1, $2, $3)",
+            user.email.as_ref(),
+            user.password.as_ref(),
+            user.requires_2fa
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|_| UserStoreError::UnexpectedError)?;
 
         Ok(())
     }
 
     async fn get_user(&self, email: &Email) -> Result<User, UserStoreError> {
-        let user = sqlx::query_as::<_, DatabaseUser>("SELECT * FROM users WHERE email = $1")
-            .bind(email.as_ref())
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(|e| {
-                println!("{}", e.to_string());
-                UserStoreError::UnexpectedError
-            })?
-            .ok_or_else(|| UserStoreError::UserNotFound)?;
+        let user = sqlx::query_as!(
+            DatabaseUser,
+            "SELECT * FROM users WHERE email = $1",
+            email.as_ref()
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| {
+            println!("{}", e.to_string());
+            UserStoreError::UnexpectedError
+        })?
+        .ok_or_else(|| UserStoreError::UserNotFound)?;
 
         let email = Email::parse(user.email).map_err(|_| UserStoreError::UnexpectedError)?;
         let password_hash = HashedPassword::parse_password_hash(user.password_hash)
