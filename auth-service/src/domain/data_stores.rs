@@ -1,7 +1,7 @@
 use crate::domain::parse::{Email, LoginAttemptId, TwoFactorAuthCode};
 use crate::domain::User;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum UserStoreError {
     UserAlreadyExists,
     UserNotFound,
