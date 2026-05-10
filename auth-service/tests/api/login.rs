@@ -37,8 +37,6 @@ async fn should_return_422_if_malformed_credentials() {
 async fn should_return_400_if_invalid_input() {
     let app = TestApp::new().await;
 
-    let random_email = get_random_email();
-
     let test_cases = [
         json!({
             "email": "",
@@ -47,10 +45,6 @@ async fn should_return_400_if_invalid_input() {
         json!({
             "email": "invalid-email",
             "password": "password123",
-        }),
-        json!({
-            "email": random_email,
-            "password": "1234567",
         }),
     ];
 

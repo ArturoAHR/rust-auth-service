@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     domain::{
-        parse::{Email, LoginAttemptId, Password, TwoFactorAuthCode},
+        parse::{Email, LoginAttemptId, TwoFactorAuthCode},
         AuthApiError,
     },
     utils::auth::generate_auth_cookie,
@@ -37,13 +37,10 @@ pub async fn login(
     Json(request): Json<LoginRequest>,
 ) -> Result<(CookieJar, impl IntoResponse), AuthApiError> {
     let email = Email::parse(request.email).map_err(|_| AuthApiError::InvalidCredentials)?;
-    let password =
-        Password::parse(request.password).map_err(|_| AuthApiError::InvalidCredentials)?;
-
     let user_store = &state.user_store.read().await;
 
     user_store
-        .validate_user(&email, &password)
+        .validate_user(&email, &request.password)
         .await
         .map_err(|_| AuthApiError::IncorrectCredentials)?;
 

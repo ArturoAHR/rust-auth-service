@@ -1,4 +1,4 @@
-use crate::domain::parse::{Email, LoginAttemptId, Password, TwoFactorAuthCode};
+use crate::domain::parse::{Email, LoginAttemptId, TwoFactorAuthCode};
 use crate::domain::User;
 
 #[derive(Debug, PartialEq)]
@@ -13,8 +13,7 @@ pub enum UserStoreError {
 pub trait UserStore: Send + Sync {
     async fn add_user(&mut self, user: User) -> Result<(), UserStoreError>;
     async fn get_user(&self, email: &Email) -> Result<User, UserStoreError>;
-    async fn validate_user(&self, email: &Email, password: &Password)
-        -> Result<(), UserStoreError>;
+    async fn validate_user(&self, email: &Email, password: &str) -> Result<(), UserStoreError>;
 }
 
 #[derive(Debug, PartialEq)]
