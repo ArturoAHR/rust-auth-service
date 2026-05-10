@@ -5,15 +5,18 @@ use auth_service::{
     get_postgres_pool,
     services::{
         hashmap_two_factor_auth_code_store::HashMapTwoFactorAuthCodeStore,
-        hashmap_user_store::HashMapUserStore, hashset_banned_token_store::HashSetBannedTokenStore,
-        mock_email_client::MockEmailClient, postgres_user_store::PostgresUserStore,
+        hashset_banned_token_store::HashSetBannedTokenStore, mock_email_client::MockEmailClient,
+        postgres_user_store::PostgresUserStore,
     },
     utils::constants::{test::APP_ADDRESS, DATABASE_URL},
     AppState, Application,
 };
 use reqwest::{cookie::Jar, Client, Response};
 use serde::Serialize;
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use sqlx::{
+    postgres::{PgConnectOptions, PgPoolOptions},
+    Connection, PgConnection, PgPool,
+};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -23,11 +26,15 @@ pub struct TestApp {
     pub client: Client,
     pub banned_token_store: Arc<RwLock<dyn BannedTokenStore>>,
     pub two_factor_auth_code_store: Arc<RwLock<dyn TwoFactorAuthCodeStore>>,
+    database_name: String,
+    cleaned_up: bool,
 }
 
 impl TestApp {
     pub async fn new() -> Self {
         let pg_pool = configure_postgresql().await;
+
+        let database_name = pg_pool.connect_options().get_database().unwrap().to_owned();
 
         let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
         let banned_token_store: Arc<RwLock<dyn BannedTokenStore>> =
@@ -63,6 +70,8 @@ impl TestApp {
             client,
             banned_token_store,
             two_factor_auth_code_store,
+            database_name,
+            cleaned_up: false,
         }
     }
 
@@ -129,6 +138,19 @@ impl TestApp {
             .await
             .expect("Failed to execute request.")
     }
+
+    pub async fn clean_up(&mut self) {
+        delete_database(&self.database_name).await;
+        self.cleaned_up = true;
+    }
+}
+
+impl Drop for TestApp {
+    fn drop(&mut self) {
+        if !self.cleaned_up {
+            panic!("Error: Test Application hasn't been cleaned up, call the cleanup function at the end of the test.")
+        }
+    }
 }
 
 pub fn get_random_email() -> String {
@@ -171,4 +193,30 @@ async fn configure_database(database_url: &str, database_name: &str) {
         .run(&pool)
         .await
         .expect("Failed to migrate the database.");
+}
+
+async fn delete_database(database_name: &str) {
+    let database_url = DATABASE_URL.to_owned();
+
+    let mut connection = PgConnection::connect(&database_url)
+        .await
+        .expect("Failed to connect to Postgres.");
+
+    sqlx::query(&format!(
+        r#"
+            SELECT pg_terminate_backend(pg_stat_activity.pid)
+            FROM pg_stat_activity
+            WHERE pg_stat_activity.datname = '{}'
+                AND pid <> pg_backend_pid();
+        "#,
+        database_name
+    ))
+    .execute(&mut connection)
+    .await
+    .expect("Failed to drop database connections.");
+
+    sqlx::query(&format!(r#"DROP DATABASE "{}";"#, database_name).as_str())
+        .execute(&mut connection)
+        .await
+        .expect("Failed to drop the database.");
 }

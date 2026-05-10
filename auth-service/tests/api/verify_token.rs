@@ -5,7 +5,7 @@ use crate::helpers::{get_random_email, TestApp};
 
 #[tokio::test]
 async fn should_return_422_if_malformed_input() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let payload = json!({});
 
@@ -16,11 +16,13 @@ async fn should_return_422_if_malformed_input() {
         422,
         "Should return correct status when body is malformed"
     );
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_200_if_token_is_valid() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let user_email = get_random_email();
     let user_password = "password12345".to_owned();
@@ -66,11 +68,13 @@ async fn should_return_200_if_token_is_valid() {
         "Should have validated the token {}",
         token
     );
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_401_if_invalid_token() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let payload = json!({
         "token": "invalid-token",
@@ -91,12 +95,14 @@ async fn should_return_401_if_invalid_token() {
             .expect("Could not deserialize response body to Error Response")
             .error,
         "Invalid token",
-    )
+    );
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_401_if_token_is_banned() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let user_email = get_random_email();
     let user_password = "password12345".to_owned();
@@ -143,4 +149,6 @@ async fn should_return_401_if_token_is_banned() {
         401,
         "Token validation should have failed",
     );
+
+    app.clean_up().await;
 }

@@ -8,7 +8,7 @@ use crate::helpers::{get_random_email, TestApp};
 
 #[tokio::test]
 async fn should_return_422_if_malformed_credentials() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let random_email = get_random_email();
 
@@ -31,11 +31,13 @@ async fn should_return_422_if_malformed_credentials() {
             test_case
         );
     }
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_400_if_invalid_input() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let test_cases = [
         json!({
@@ -67,11 +69,13 @@ async fn should_return_400_if_invalid_input() {
             "Invalid credentials".to_owned()
         )
     }
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_401_if_incorrect_credentials() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let user_email = get_random_email();
     let user_password = "password12345".to_owned();
@@ -104,12 +108,14 @@ async fn should_return_401_if_incorrect_credentials() {
             .expect("Could not deserialize response body to Error Response")
             .error,
         "Incorrect credentials".to_owned()
-    )
+    );
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let user_email = get_random_email();
     let user_password = "password12345".to_owned();
@@ -141,11 +147,13 @@ async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
         .expect("No auth cookie found");
 
     assert!(!auth_cookie.value().is_empty());
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let user_email = get_random_email();
     let user_password = "password12345".to_owned();
@@ -188,5 +196,7 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
         .await
         .unwrap();
 
-    assert_eq!(login_attempt_id, added_code_record.0.as_ref())
+    assert_eq!(login_attempt_id, added_code_record.0.as_ref());
+
+    app.clean_up().await;
 }

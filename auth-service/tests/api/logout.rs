@@ -6,7 +6,7 @@ use crate::helpers::{get_random_email, TestApp};
 
 #[tokio::test]
 async fn should_return_400_if_jwt_cookie_is_missing() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let response = app.post_logout().await;
 
@@ -23,12 +23,14 @@ async fn should_return_400_if_jwt_cookie_is_missing() {
             .expect("Could not deserialize response body to Error Response")
             .error,
         "Missing token",
-    )
+    );
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_401_if_invalid_token() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     app.cookie_jar.add_cookie_str(
         &format!(
@@ -53,12 +55,14 @@ async fn should_return_401_if_invalid_token() {
             .expect("Could not deserialize response body to Error Response")
             .error,
         "Invalid token",
-    )
+    );
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_200_if_valid_jwt_cookie() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let user_email = get_random_email();
     let user_password = "password12345".to_owned();
@@ -101,6 +105,8 @@ async fn should_return_200_if_valid_jwt_cookie() {
         .await
         .expect("Could not check if token is banned.");
 
+    drop(banned_token_store);
+
     assert_eq!(
         response.status().as_u16(),
         200,
@@ -108,11 +114,13 @@ async fn should_return_200_if_valid_jwt_cookie() {
     );
 
     assert!(is_token_banned);
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_400_if_logout_called_twice_in_a_row() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let user_email = get_random_email();
     let user_password = "password12345".to_owned();
@@ -149,5 +157,7 @@ async fn should_return_400_if_logout_called_twice_in_a_row() {
             .expect("Could not deserialize response body to Error Response")
             .error,
         "Missing token",
-    )
+    );
+
+    app.clean_up().await;
 }
