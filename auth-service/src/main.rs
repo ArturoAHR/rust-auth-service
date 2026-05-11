@@ -3,9 +3,9 @@ use std::sync::Arc;
 use auth_service::{
     get_postgres_pool, get_redis_client,
     services::{
-        hashmap_two_factor_auth_code_store::HashMapTwoFactorAuthCodeStore,
         mock_email_client::MockEmailClient, postgres_user_store::PostgresUserStore,
         redis_banned_token_store::RedisBannedTokenStore,
+        redis_two_factor_auth_code_store::RedisTwoFactorAuthStore,
     },
     utils::constants::{prod::APP_ADDRESS, DATABASE_URL, REDIS_HOST_NAME},
     AppState, Application,
@@ -22,8 +22,9 @@ async fn main() {
     let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(Arc::clone(
         &redis_connection,
     ))));
-    let two_factor_auth_code_store =
-        Arc::new(RwLock::new(HashMapTwoFactorAuthCodeStore::default()));
+    let two_factor_auth_code_store = Arc::new(RwLock::new(RedisTwoFactorAuthStore::new(
+        Arc::clone(&redis_connection),
+    )));
     let email_client = Arc::new(RwLock::new(MockEmailClient {}));
 
     let app_state = AppState::new(

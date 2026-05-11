@@ -4,3 +4,4 @@ pub mod hashset_banned_token_store;
 pub mod mock_email_client;
 pub mod postgres_user_store;
 pub mod redis_banned_token_store;
+pub mod redis_two_factor_auth_code_store;

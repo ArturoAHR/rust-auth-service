@@ -1,7 +1,6 @@
 use std::convert::TryInto;
 use std::sync::Arc;
 
-use chrono::format::parse;
 use redis::{Connection, TypedCommands};
 use tokio::sync::RwLock;
 
