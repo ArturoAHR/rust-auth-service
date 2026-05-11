@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 use std::sync::Arc;
 
-use redis::{Connection, TypedCommands};
+use redis::{ConnectionLike, TypedCommands};
 use tokio::sync::RwLock;
 
 use crate::{
@@ -9,18 +9,18 @@ use crate::{
     utils::auth::TOKEN_TTL_SECONDS,
 };
 
-pub struct RedisBannedTokenStore {
-    connection: Arc<RwLock<Connection>>,
+pub struct RedisBannedTokenStore<C: ConnectionLike + Send + Sync> {
+    connection: Arc<RwLock<C>>,
 }
 
-impl RedisBannedTokenStore {
-    pub fn new(connection: Arc<RwLock<Connection>>) -> Self {
+impl<C: ConnectionLike + Send + Sync> RedisBannedTokenStore<C> {
+    pub fn new(connection: Arc<RwLock<C>>) -> Self {
         Self { connection }
     }
 }
 
 #[async_trait::async_trait]
-impl BannedTokenStore for RedisBannedTokenStore {
+impl<C: ConnectionLike + Send + Sync> BannedTokenStore for RedisBannedTokenStore<C> {
     async fn ban_token(&mut self, token: &str) -> Result<(), BannedTokenStoreError> {
         let key = get_key(token);
 
@@ -54,4 +54,62 @@ const BANNED_TOKEN_KEY_PREFIX: &str = "banned_token:";
 
 fn get_key(token: &str) -> String {
     format!("{}{}", BANNED_TOKEN_KEY_PREFIX, token)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use redis::Value;
+    use redis_test::{MockCmd, MockRedisConnection};
+
+    fn get_expiration_time() -> u64 {
+        TOKEN_TTL_SECONDS.try_into().unwrap()
+    }
+
+    fn create_store(commands: Vec<MockCmd>) -> RedisBannedTokenStore<MockRedisConnection> {
+        let connection = Arc::new(RwLock::new(MockRedisConnection::new(commands)));
+
+        RedisBannedTokenStore::new(connection)
+    }
+
+    #[tokio::test]
+    async fn should_successfully_ban_and_check_banned_token() {
+        let token = "token";
+
+        let mock_redis_commands = vec![
+            MockCmd::new(
+                redis::cmd("SETEX")
+                    .arg("banned_token:token")
+                    .arg(get_expiration_time())
+                    .arg("1"),
+                Ok("OK"),
+            ),
+            MockCmd::new(redis::cmd("GET").arg("banned_token:token"), Ok("1")),
+        ];
+
+        let mut store = create_store(mock_redis_commands);
+
+        store.ban_token(token).await.unwrap();
+
+        let token_is_banned = store.contains_token(token).await.unwrap();
+
+        assert!(token_is_banned);
+    }
+
+    #[tokio::test]
+    async fn should_successfully_check_not_banned_token() {
+        let commands = vec![MockCmd::new(
+            redis::cmd("GET").arg("banned_token:token"),
+            Ok(Value::Nil),
+        )];
+
+        let store = create_store(commands);
+
+        let token = "token";
+
+        let token_is_banned = store.contains_token(token).await.unwrap();
+
+        assert!(!token_is_banned);
+    }
 }
