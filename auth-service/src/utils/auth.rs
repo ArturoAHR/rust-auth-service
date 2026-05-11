@@ -71,7 +71,7 @@ pub async fn validate_token(
     banned_token_store: &dyn BannedTokenStore,
 ) -> Result<Claims, jsonwebtoken::errors::Error> {
     let is_token_banned = banned_token_store
-        .check_if_token_is_banned(token)
+        .contains_token(token)
         .await
         .map_err(|_| {
             jsonwebtoken::errors::new_error(jsonwebtoken::errors::ErrorKind::InvalidToken)

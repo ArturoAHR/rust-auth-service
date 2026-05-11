@@ -15,7 +15,7 @@ impl BannedTokenStore for HashSetBannedTokenStore {
         Ok(())
     }
 
-    async fn check_if_token_is_banned(&self, token: &str) -> Result<bool, BannedTokenStoreError> {
+    async fn contains_token(&self, token: &str) -> Result<bool, BannedTokenStoreError> {
         let banned_token = self.banned_tokens.get(token);
 
         Ok(banned_token.is_some())
@@ -47,7 +47,7 @@ mod tests {
 
         store.ban_token(token).await.unwrap();
 
-        let token_is_banned = store.check_if_token_is_banned(token).await.unwrap();
+        let token_is_banned = store.contains_token(token).await.unwrap();
 
         assert!(token_is_banned);
     }
@@ -58,7 +58,7 @@ mod tests {
 
         let token = "token";
 
-        let token_is_banned = store.check_if_token_is_banned(token).await.unwrap();
+        let token_is_banned = store.contains_token(token).await.unwrap();
 
         assert!(!token_is_banned);
     }
