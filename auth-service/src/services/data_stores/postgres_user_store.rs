@@ -1,4 +1,5 @@
 use sqlx::PgPool;
+use tracing::instrument;
 
 use crate::domain::{
     parse::{Email, HashedPassword},
@@ -24,13 +25,8 @@ impl PostgresUserStore {
 
 #[async_trait::async_trait]
 impl UserStore for PostgresUserStore {
+    #[instrument(name = "Adding user to PostgreSQL", skip_all)]
     async fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
-        match &self.get_user(&user.email).await {
-            Ok(_) => Err(UserStoreError::UserAlreadyExists),
-            Err(UserStoreError::UserNotFound) => Ok(()),
-            Err(err) => Err(err.to_owned()),
-        }?;
-
         sqlx::query!(
             "INSERT INTO users (email, password_hash, requires_2fa) VALUES ($1, $2, $3)",
             user.email.as_ref(),
@@ -44,6 +40,7 @@ impl UserStore for PostgresUserStore {
         Ok(())
     }
 
+    #[instrument(name = "Retrieving user to PostgreSQL", skip_all)]
     async fn get_user(&self, email: &Email) -> Result<User, UserStoreError> {
         let user = sqlx::query_as!(
             DatabaseUser,
@@ -65,6 +62,7 @@ impl UserStore for PostgresUserStore {
         Ok(User::new(email, password_hash, user.requires_2fa))
     }
 
+    #[instrument(name = "Validating user credentials in PostgreSQL", skip_all)]
     async fn validate_user(&self, email: &Email, password: &str) -> Result<(), UserStoreError> {
         let user = self.get_user(email).await?;
 

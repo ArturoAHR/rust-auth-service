@@ -4,6 +4,7 @@ use argon2::{
     password_hash::{rand_core::OsRng, SaltString},
     Algorithm, Argon2, Params, PasswordHash, PasswordHasher, PasswordVerifier, Version,
 };
+use tracing::{instrument, Span};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct HashedPassword(String);
@@ -27,19 +28,23 @@ impl HashedPassword {
         Ok(HashedPassword(hash))
     }
 
+    #[instrument(name = "Verify raw password", skip_all)]
     pub async fn verify_raw_password(
         &self,
         password_candidate: &str,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let current_span = Span::current();
         let password_hash = self.as_ref().to_owned();
         let password_candidate = password_candidate.to_owned();
 
         tokio::task::spawn_blocking(move || -> Result<(), Box<dyn Error + Send + Sync>> {
-            let expected_password_hash: PasswordHash = PasswordHash::new(&password_hash)?;
+            current_span.in_scope(|| {
+                let expected_password_hash: PasswordHash = PasswordHash::new(&password_hash)?;
 
-            Argon2::default()
-                .verify_password(password_candidate.as_bytes(), &expected_password_hash)
-                .map_err(|e| e.into())
+                Argon2::default()
+                    .verify_password(password_candidate.as_bytes(), &expected_password_hash)
+                    .map_err(|e| e.into())
+            })
         })
         .await?
     }
@@ -51,21 +56,25 @@ impl AsRef<str> for HashedPassword {
     }
 }
 
+#[instrument(name = "Computing password hash", skip_all)]
 async fn compute_password_hash(password: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+    let current_span = Span::current();
     let password = password.to_owned();
 
     let salt: SaltString = SaltString::generate(&mut OsRng);
 
     tokio::task::spawn_blocking(move || -> Result<String, Box<dyn Error + Send + Sync>> {
-        let password_hash = Argon2::new(
-            Algorithm::Argon2id,
-            Version::V0x13,
-            Params::new(15000, 2, 1, None)?,
-        )
-        .hash_password(password.as_bytes(), &salt)?
-        .to_string();
+        current_span.in_scope(|| {
+            let password_hash = Argon2::new(
+                Algorithm::Argon2id,
+                Version::V0x13,
+                Params::new(15000, 2, 1, None)?,
+            )
+            .hash_password(password.as_bytes(), &salt)?
+            .to_string();
 
-        Ok(password_hash)
+            Ok(password_hash)
+        })
     })
     .await?
 }
