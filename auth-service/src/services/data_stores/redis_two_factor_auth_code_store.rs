@@ -4,6 +4,7 @@ use color_eyre::eyre::{Context, Result};
 use redis::{ConnectionLike, TypedCommands};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
+use tracing::instrument;
 
 use crate::domain::{
     parse::{Email, LoginAttemptId, TwoFactorAuthCode},
@@ -22,6 +23,7 @@ impl<C: ConnectionLike + Send + Sync> RedisTwoFactorAuthStore<C> {
 
 #[async_trait::async_trait]
 impl<C: ConnectionLike + Send + Sync> TwoFactorAuthCodeStore for RedisTwoFactorAuthStore<C> {
+    #[instrument(name = "Add two factor auth code in Redis", skip_all)]
     async fn add_code(
         &mut self,
         email: Email,
@@ -49,6 +51,7 @@ impl<C: ConnectionLike + Send + Sync> TwoFactorAuthCodeStore for RedisTwoFactorA
         Ok(())
     }
 
+    #[instrument(name = "Remove two factor auth code from Redis", skip_all)]
     async fn remove_code(&mut self, email: &Email) -> Result<()> {
         let key = get_key(&email);
 
@@ -62,6 +65,7 @@ impl<C: ConnectionLike + Send + Sync> TwoFactorAuthCodeStore for RedisTwoFactorA
         Ok(())
     }
 
+    #[instrument(name = "Retrieve two factor auth code from Redis", skip_all)]
     async fn get_code(&self, email: &Email) -> Result<(LoginAttemptId, TwoFactorAuthCode)> {
         let key = get_key(&email);
 

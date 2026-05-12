@@ -1,5 +1,6 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse};
 use axum_extra::extract::{cookie::Cookie, CookieJar};
+use tracing::instrument;
 
 use crate::{
     domain::AuthApiError,
@@ -7,6 +8,7 @@ use crate::{
     AppState,
 };
 
+#[instrument(name = "Logout", skip_all)]
 pub async fn logout(
     State(state): State<AppState>,
     jar: CookieJar,
@@ -27,7 +29,7 @@ pub async fn logout(
     banned_token_store
         .ban_token(&token)
         .await
-        .map_err(|e| AuthApiError::UnexpectedError(e.into()))?;
+        .map_err(AuthApiError::UnexpectedError)?;
 
     Ok((jar, StatusCode::OK.into_response()))
 }

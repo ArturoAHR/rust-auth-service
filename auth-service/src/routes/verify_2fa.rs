@@ -1,6 +1,7 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_extra::extract::CookieJar;
 use serde::Deserialize;
+use tracing::instrument;
 
 use crate::{
     domain::{
@@ -20,6 +21,7 @@ pub struct VerifyTwoFactorAuthRequest {
     two_factor_auth_code: String,
 }
 
+#[instrument(name = "Verify two factor authentication code", skip_all)]
 pub async fn verify_2fa(
     State(state): State<AppState>,
     jar: CookieJar,
@@ -45,10 +47,9 @@ pub async fn verify_2fa(
     two_factor_auth_code_store
         .remove_code(&email)
         .await
-        .map_err(|e| AuthApiError::UnexpectedError(e.into()))?;
+        .map_err(AuthApiError::UnexpectedError)?;
 
-    let auth_cookie =
-        generate_auth_cookie(&email).map_err(|e| AuthApiError::UnexpectedError(e.into()))?;
+    let auth_cookie = generate_auth_cookie(&email).map_err(AuthApiError::UnexpectedError)?;
 
     let updated_jar = jar.add(auth_cookie);
 

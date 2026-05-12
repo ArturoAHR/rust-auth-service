@@ -18,7 +18,7 @@ pub struct SignUpRequest {
     pub requires_2fa: bool,
 }
 
-#[instrument(name = "Signup", skip_all)]
+#[instrument(name = "Sign up", skip_all)]
 pub async fn sign_up(
     State(state): State<AppState>,
     Json(request): Json<SignUpRequest>,

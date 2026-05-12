@@ -1,7 +1,8 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_extra::extract::CookieJar;
-use color_eyre::eyre::{eyre, Context};
+use color_eyre::eyre::Context;
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::{
     domain::{
@@ -32,6 +33,7 @@ pub struct TwoFactorAuthResponse {
     pub login_attempt_id: String,
 }
 
+#[instrument(name = "Login", skip_all)]
 pub async fn login(
     State(state): State<AppState>,
     jar: CookieJar,

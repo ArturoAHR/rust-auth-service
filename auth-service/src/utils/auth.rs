@@ -4,6 +4,7 @@ use color_eyre::eyre::{eyre, Context, Report, Result};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tracing::instrument;
 
 use crate::{
     domain::{parse::Email, BannedTokenStore},
@@ -26,12 +27,14 @@ pub enum GenerateTokenError {
     UnexpectedError(#[source] Report),
 }
 
+#[instrument(name = "Generate auth cookie", skip_all)]
 pub fn generate_auth_cookie(email: &Email) -> Result<Cookie<'static>> {
     let token = generate_auth_token(email)?;
 
     Ok(create_auth_cookie(token))
 }
 
+#[instrument(name = "Create auth cookie", skip_all)]
 fn create_auth_cookie(token: String) -> Cookie<'static> {
     let cookie = Cookie::build((JWT_COOKIE_NAME, token))
         .path("/")
@@ -42,6 +45,7 @@ fn create_auth_cookie(token: String) -> Cookie<'static> {
     cookie
 }
 
+#[instrument(name = "Generate auth token", skip_all)]
 fn generate_auth_token(email: &Email) -> Result<String> {
     let delta = chrono::Duration::try_seconds(TOKEN_TTL_SECONDS).ok_or(
         GenerateTokenError::UnexpectedError(eyre!("Failed to create expiration time delta.")),
@@ -66,6 +70,7 @@ fn generate_auth_token(email: &Email) -> Result<String> {
     create_token(&claims)
 }
 
+#[instrument(name = "Create JWT token from claims", skip_all)]
 fn create_token(claims: &Claims) -> Result<String> {
     encode(
         &jsonwebtoken::Header::default(),
@@ -75,6 +80,7 @@ fn create_token(claims: &Claims) -> Result<String> {
     .wrap_err("Failed to encode token")
 }
 
+#[instrument(name = "Validate token", skip_all)]
 pub async fn validate_token(
     token: &str,
     banned_token_store: &dyn BannedTokenStore,
