@@ -1,6 +1,10 @@
-#[derive(Debug, PartialEq)]
+use thiserror::Error;
+
+#[derive(Debug, PartialEq, Error)]
 pub enum EmailParseError {
+    #[error("Invalid email")]
     InvalidEmail,
+    #[error("Empty email")]
     EmptyEmail,
 }
 

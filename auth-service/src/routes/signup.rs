@@ -18,7 +18,7 @@ pub struct SignUpRequest {
     pub requires_2fa: bool,
 }
 
-#[instrument(name = "Signup", skip_all, err(Debug))]
+#[instrument(name = "Signup", skip_all)]
 pub async fn sign_up(
     State(state): State<AppState>,
     Json(request): Json<SignUpRequest>,
@@ -39,7 +39,7 @@ pub async fn sign_up(
     user_store
         .add_user(user)
         .await
-        .map_err(|_| AuthApiError::UnexpectedError)?;
+        .map_err(|e| AuthApiError::UnexpectedError(e.into()))?;
 
     let response = Json(SignUpResponse {
         message: "User created successfully".to_owned(),

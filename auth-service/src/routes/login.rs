@@ -1,5 +1,6 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_extra::extract::CookieJar;
+use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -49,18 +50,21 @@ pub async fn login(
         .await
         .map_err(|_| AuthApiError::IncorrectCredentials)?;
 
-    if user.requires_2fa {
+    let response = if user.requires_2fa {
         handle_2fa(&state, jar, &email).await
     } else {
         handle_no_2fa(jar, &email).await
-    }
+    }?;
+
+    Ok(response)
 }
 
 async fn handle_no_2fa(
     jar: CookieJar,
     email: &Email,
 ) -> Result<(CookieJar, (StatusCode, Json<LoginResponse>)), AuthApiError> {
-    let auth_cookie = generate_auth_cookie(&email).map_err(|_| AuthApiError::UnexpectedError)?;
+    let auth_cookie =
+        generate_auth_cookie(&email).map_err(|e| AuthApiError::UnexpectedError(eyre!(e)))?;
 
     let updated_jar = jar.add(auth_cookie);
 
@@ -87,7 +91,7 @@ async fn handle_2fa(
             two_factor_auth_code.clone(),
         )
         .await
-        .map_err(|_| AuthApiError::UnexpectedError)?;
+        .map_err(|e| AuthApiError::UnexpectedError(e.into()))?;
 
     let email_client = state.email_client.read().await;
 
@@ -98,7 +102,7 @@ async fn handle_2fa(
             two_factor_auth_code.as_ref().into(),
         )
         .await
-        .map_err(|_| AuthApiError::UnexpectedError)?;
+        .map_err(|e| AuthApiError::UnexpectedError(eyre!(e)))?;
 
     let response = LoginResponse::TwoFactorAuth(TwoFactorAuthResponse {
         message: "2FA required".to_owned(),

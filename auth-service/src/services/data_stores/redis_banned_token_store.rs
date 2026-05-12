@@ -1,5 +1,5 @@
-use std::convert::TryInto;
 use std::sync::Arc;
+use std::{convert::TryInto, num::TryFromIntError};
 
 use redis::{ConnectionLike, TypedCommands};
 use tokio::sync::RwLock;
@@ -28,11 +28,11 @@ impl<C: ConnectionLike + Send + Sync> BannedTokenStore for RedisBannedTokenStore
 
         let expiration_time_seconds: u64 = TOKEN_TTL_SECONDS
             .try_into()
-            .map_err(|_| BannedTokenStoreError::UnexpectedError)?;
+            .map_err(|e: TryFromIntError| BannedTokenStoreError::UnexpectedError(e.into()))?;
 
         connection
             .set_ex(key, true, expiration_time_seconds)
-            .map_err(|_| BannedTokenStoreError::UnexpectedError)?;
+            .map_err(|e| BannedTokenStoreError::UnexpectedError(e.into()))?;
 
         Ok(())
     }
@@ -44,7 +44,7 @@ impl<C: ConnectionLike + Send + Sync> BannedTokenStore for RedisBannedTokenStore
 
         let value = connection
             .get(key)
-            .map_err(|_| BannedTokenStoreError::UnexpectedError)?;
+            .map_err(|e| BannedTokenStoreError::UnexpectedError(e.into()))?;
 
         Ok(value.is_some())
     }

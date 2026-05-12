@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use color_eyre::eyre::Result;
+
 use crate::domain::{parse::Email, User, UserStore, UserStoreError};
 
 #[derive(Debug, Default)]
@@ -9,9 +11,9 @@ pub struct HashMapUserStore {
 
 #[async_trait::async_trait]
 impl UserStore for HashMapUserStore {
-    async fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
+    async fn add_user(&mut self, user: User) -> Result<()> {
         if let Some(_) = self.users.get(&user.email) {
-            return Err(UserStoreError::UserAlreadyExists);
+            return Err(UserStoreError::UserAlreadyExists.into());
         }
 
         self.users.insert(user.email.clone(), user);
@@ -19,15 +21,15 @@ impl UserStore for HashMapUserStore {
         Ok(())
     }
 
-    async fn get_user(&self, email: &Email) -> Result<User, UserStoreError> {
+    async fn get_user(&self, email: &Email) -> Result<User> {
         if let Some(found_user) = self.users.get(email) {
             return Ok(found_user.clone());
         }
 
-        Err(UserStoreError::UserNotFound)
+        Err(UserStoreError::UserNotFound.into())
     }
 
-    async fn validate_user(&self, email: &Email, password: &str) -> Result<(), UserStoreError> {
+    async fn validate_user(&self, email: &Email, password: &str) -> Result<()> {
         let user = self.get_user(email).await?;
 
         user.password
@@ -46,7 +48,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn should_add_user() -> Result<(), UserStoreError> {
+    async fn should_add_user() -> Result<()> {
         let mut store = HashMapUserStore::default();
 
         let user = User::new(
@@ -70,7 +72,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn should_get_user() -> Result<(), UserStoreError> {
+    async fn should_get_user() -> Result<()> {
         let mut store = HashMapUserStore::default();
 
         let user = User::new(
@@ -99,13 +101,17 @@ mod tests {
         let user_retrieval_result = store.get_user(&non_existing_user_email).await;
 
         assert_eq!(
-            user_retrieval_result.err().unwrap(),
+            user_retrieval_result
+                .err()
+                .unwrap()
+                .downcast::<UserStoreError>()
+                .unwrap(),
             UserStoreError::UserNotFound
         );
     }
 
     #[tokio::test]
-    async fn should_validate_user() -> Result<(), UserStoreError> {
+    async fn should_validate_user() -> Result<()> {
         let mut store = HashMapUserStore::default();
 
         let password = "password123".to_owned();
@@ -140,7 +146,11 @@ mod tests {
         let validation_result = store.validate_user(&user.email, &incorrect_password).await;
 
         assert_eq!(
-            validation_result.err().unwrap(),
+            validation_result
+                .err()
+                .unwrap()
+                .downcast::<UserStoreError>()
+                .unwrap(),
             UserStoreError::InvalidCredentials
         );
     }
@@ -157,7 +167,11 @@ mod tests {
             .await;
 
         assert_eq!(
-            validation_result.err().unwrap(),
+            validation_result
+                .err()
+                .unwrap()
+                .downcast::<UserStoreError>()
+                .unwrap(),
             UserStoreError::UserNotFound
         );
     }

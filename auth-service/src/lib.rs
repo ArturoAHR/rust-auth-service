@@ -20,7 +20,7 @@ pub mod services;
 pub mod utils;
 
 use domain::AuthApiError;
-use tracing::info;
+use tracing::{error, info};
 
 use crate::{
     domain::{BannedTokenStore, EmailClient, TwoFactorAuthCodeStore, UserStore},
@@ -69,10 +69,12 @@ pub struct ErrorResponse {
 
 impl IntoResponse for AuthApiError {
     fn into_response(self) -> Response {
+        log_error_chain(&self);
+
         let (status, error_message) = match self {
             AuthApiError::UserAlreadyExists => (StatusCode::CONFLICT, "User already exists"),
             AuthApiError::InvalidCredentials => (StatusCode::BAD_REQUEST, "Invalid credentials"),
-            AuthApiError::UnexpectedError => {
+            AuthApiError::UnexpectedError(_) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
             }
             AuthApiError::IncorrectCredentials => {
@@ -138,4 +140,21 @@ pub fn get_redis_client(redis_hostname: String) -> RedisResult<Client> {
     let redis_url = format!("redis://{}/", redis_hostname);
 
     redis::Client::open(redis_url)
+}
+
+fn log_error_chain(e: &(dyn Error + 'static)) {
+    let separator =
+        "\n-----------------------------------------------------------------------------------\n";
+    let mut report = format!("{}{:?}\n", separator, e);
+    let mut current = e.source();
+
+    while let Some(cause) = current {
+        let str = format!("Caused by:\n\n{:?}", cause);
+
+        report = format!("{}\n{}", report, str);
+        current = cause.source();
+    }
+
+    report = format!("{}\n{}", report, separator);
+    error!("{}", report);
 }

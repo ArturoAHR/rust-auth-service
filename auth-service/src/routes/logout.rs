@@ -27,7 +27,7 @@ pub async fn logout(
     banned_token_store
         .ban_token(&token)
         .await
-        .map_err(|_| AuthApiError::UnexpectedError)?;
+        .map_err(|e| AuthApiError::UnexpectedError(e.into()))?;
 
     Ok((jar, StatusCode::OK.into_response()))
 }

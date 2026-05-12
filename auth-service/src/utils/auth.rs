@@ -1,7 +1,11 @@
+use std::num::TryFromIntError;
+
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use chrono::Utc;
+use color_eyre::eyre::{eyre, Report, Result};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Validation};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use crate::{
     domain::{parse::Email, BannedTokenStore},
@@ -16,13 +20,15 @@ pub struct Claims {
     pub exp: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum GenerateTokenError {
-    TokenError(jsonwebtoken::errors::Error),
-    UnexpectedError,
+    #[error("Token error")]
+    TokenError(#[source] jsonwebtoken::errors::Error),
+    #[error("Unexpected error")]
+    UnexpectedError(#[source] Report),
 }
 
-pub fn generate_auth_cookie(email: &Email) -> Result<Cookie<'static>, GenerateTokenError> {
+pub fn generate_auth_cookie(email: &Email) -> Result<Cookie<'static>> {
     let token = generate_auth_token(email)?;
 
     Ok(create_auth_cookie(token))
@@ -38,24 +44,24 @@ fn create_auth_cookie(token: String) -> Cookie<'static> {
     cookie
 }
 
-fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> {
+fn generate_auth_token(email: &Email) -> Result<String> {
     let delta = chrono::Duration::try_seconds(TOKEN_TTL_SECONDS)
-        .ok_or(GenerateTokenError::UnexpectedError)?;
+        .ok_or(GenerateTokenError::UnexpectedError(eyre!("")))?;
 
     let exp = Utc::now()
         .checked_add_signed(delta)
-        .ok_or(GenerateTokenError::UnexpectedError)?
+        .ok_or(GenerateTokenError::UnexpectedError(eyre!("")))?
         .timestamp();
 
     let exp: usize = exp
         .try_into()
-        .map_err(|_| GenerateTokenError::UnexpectedError)?;
+        .map_err(|e: TryFromIntError| GenerateTokenError::UnexpectedError(eyre!(e)))?;
 
     let sub = email.as_ref().to_owned();
 
     let claims = Claims { sub, exp };
 
-    create_token(&claims).map_err(GenerateTokenError::TokenError)
+    create_token(&claims).map_err(|e| GenerateTokenError::TokenError(e.into()).into())
 }
 
 fn create_token(claims: &Claims) -> Result<String, jsonwebtoken::errors::Error> {
@@ -69,7 +75,7 @@ fn create_token(claims: &Claims) -> Result<String, jsonwebtoken::errors::Error> 
 pub async fn validate_token(
     token: &str,
     banned_token_store: &dyn BannedTokenStore,
-) -> Result<Claims, jsonwebtoken::errors::Error> {
+) -> Result<Claims> {
     let is_token_banned = banned_token_store
         .contains_token(token)
         .await
@@ -78,9 +84,9 @@ pub async fn validate_token(
         })?;
 
     if is_token_banned {
-        return Err(jsonwebtoken::errors::new_error(
-            jsonwebtoken::errors::ErrorKind::InvalidToken,
-        ));
+        return Err(
+            jsonwebtoken::errors::new_error(jsonwebtoken::errors::ErrorKind::InvalidToken).into(),
+        );
     }
 
     decode::<Claims>(
@@ -89,6 +95,7 @@ pub async fn validate_token(
         &Validation::default(),
     )
     .map(|data| data.claims)
+    .map_err(|e| e.into())
 }
 
 #[cfg(test)]

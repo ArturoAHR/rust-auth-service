@@ -45,9 +45,10 @@ pub async fn verify_2fa(
     two_factor_auth_code_store
         .remove_code(&email)
         .await
-        .map_err(|_| AuthApiError::UnexpectedError)?;
+        .map_err(|e| AuthApiError::UnexpectedError(e.into()))?;
 
-    let auth_cookie = generate_auth_cookie(&email).map_err(|_| AuthApiError::UnexpectedError)?;
+    let auth_cookie =
+        generate_auth_cookie(&email).map_err(|e| AuthApiError::UnexpectedError(e.into()))?;
 
     let updated_jar = jar.add(auth_cookie);
 

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use color_eyre::eyre::eyre;
 use redis::{ConnectionLike, TypedCommands};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
@@ -35,13 +36,13 @@ impl<C: ConnectionLike + Send + Sync> TwoFactorAuthCodeStore for RedisTwoFactorA
         );
 
         let serialized_record = serde_json::to_string(&record)
-            .map_err(|_| TwoFactorAuthCodeStoreError::UnexpectedError)?;
+            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
 
         let mut connection = self.connection.write().await;
 
         connection
             .set_ex(key, serialized_record, RECORD_EXPIRATION_TIME_SECONDS)
-            .map_err(|_| TwoFactorAuthCodeStoreError::UnexpectedError)?;
+            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
 
         Ok(())
     }
@@ -53,7 +54,7 @@ impl<C: ConnectionLike + Send + Sync> TwoFactorAuthCodeStore for RedisTwoFactorA
 
         connection
             .del(key)
-            .map_err(|_| TwoFactorAuthCodeStoreError::UnexpectedError)?;
+            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
 
         Ok(())
     }
@@ -68,16 +69,16 @@ impl<C: ConnectionLike + Send + Sync> TwoFactorAuthCodeStore for RedisTwoFactorA
 
         let raw_record = connection
             .get(key)
-            .map_err(|_| TwoFactorAuthCodeStoreError::UnexpectedError)?
+            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?
             .ok_or(TwoFactorAuthCodeStoreError::LoginAttemptIdNotFound)?;
 
         let record: TwoFactorAuthCodeRecord = serde_json::from_str(&raw_record)
-            .map_err(|_| TwoFactorAuthCodeStoreError::UnexpectedError)?;
+            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
 
         let login_attempt_id = LoginAttemptId::parse(record.0)
-            .map_err(|_| TwoFactorAuthCodeStoreError::UnexpectedError)?;
+            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(eyre!(e)))?;
         let two_factor_auth_code = TwoFactorAuthCode::parse(record.1)
-            .map_err(|_| TwoFactorAuthCodeStoreError::UnexpectedError)?;
+            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(eyre!(e)))?;
 
         Ok((login_attempt_id, two_factor_auth_code))
     }
