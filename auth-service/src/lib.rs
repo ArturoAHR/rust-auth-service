@@ -156,5 +156,5 @@ fn log_error_chain(e: &(dyn Error + 'static)) {
     }
 
     report = format!("{}\n{}", report, separator);
-    error!("{}", report);
+    eprintln!("{}", report);
 }
