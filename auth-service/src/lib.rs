@@ -12,7 +12,7 @@ use redis::{Client, RedisResult};
 use serde::{Deserialize, Serialize};
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use tokio::{net::TcpListener, sync::RwLock};
-use tower_http::{cors::CorsLayer, services::ServeDir};
+use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
 
 pub mod domain;
 pub mod routes;
@@ -20,8 +20,12 @@ pub mod services;
 pub mod utils;
 
 use domain::AuthApiError;
+use tracing::info;
 
-use crate::domain::{BannedTokenStore, EmailClient, TwoFactorAuthCodeStore, UserStore};
+use crate::{
+    domain::{BannedTokenStore, EmailClient, TwoFactorAuthCodeStore, UserStore},
+    utils::tracing::{make_span_with_request_id, on_request, on_response},
+};
 
 pub type AppStateUserStore = Arc<RwLock<dyn UserStore>>;
 pub type AppStateBannedTokenStore = Arc<RwLock<dyn BannedTokenStore>>;
@@ -105,7 +109,13 @@ impl Application {
             .route("/logout", post(routes::logout))
             .route("/verify-token", post(routes::verify_token))
             .with_state(app_state)
-            .layer(cors);
+            .layer(cors)
+            .layer(
+                TraceLayer::new_for_http()
+                    .make_span_with(make_span_with_request_id)
+                    .on_request(on_request)
+                    .on_response(on_response),
+            );
 
         let listener = TcpListener::bind(address).await?;
         let address = listener.local_addr()?.to_string();
@@ -115,7 +125,7 @@ impl Application {
     }
 
     pub async fn run(self) -> Result<(), std::io::Error> {
-        println!("Listening on {}", &self.address);
+        info!("Listening on {}", &self.address);
         self.server.await
     }
 }
