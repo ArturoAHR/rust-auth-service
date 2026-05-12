@@ -41,7 +41,7 @@ impl UserStore for PostgresUserStore {
         Ok(())
     }
 
-    #[instrument(name = "Retrieving user to PostgreSQL", skip_all)]
+    #[instrument(name = "Retrieving user from PostgreSQL", skip_all)]
     async fn get_user(&self, email: &Email) -> Result<User> {
         let user = sqlx::query_as!(
             DatabaseUser,
