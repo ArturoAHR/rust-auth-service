@@ -1,8 +1,6 @@
-use std::num::TryFromIntError;
-
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use chrono::Utc;
-use color_eyre::eyre::{eyre, Report, Result};
+use color_eyre::eyre::{eyre, Context, Report, Result};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -45,31 +43,36 @@ fn create_auth_cookie(token: String) -> Cookie<'static> {
 }
 
 fn generate_auth_token(email: &Email) -> Result<String> {
-    let delta = chrono::Duration::try_seconds(TOKEN_TTL_SECONDS)
-        .ok_or(GenerateTokenError::UnexpectedError(eyre!("")))?;
+    let delta = chrono::Duration::try_seconds(TOKEN_TTL_SECONDS).ok_or(
+        GenerateTokenError::UnexpectedError(eyre!("Failed to create expiration time delta.")),
+    )?;
 
     let exp = Utc::now()
         .checked_add_signed(delta)
-        .ok_or(GenerateTokenError::UnexpectedError(eyre!("")))?
+        .ok_or(GenerateTokenError::UnexpectedError(eyre!(
+            "Failed to add expiration time to current time."
+        )))?
         .timestamp();
 
-    let exp: usize = exp
-        .try_into()
-        .map_err(|e: TryFromIntError| GenerateTokenError::UnexpectedError(eyre!(e)))?;
+    let exp: usize = exp.try_into().wrap_err(format!(
+        "Failed to cast expiration time to usize. Expiration time: {}",
+        exp
+    ))?;
 
     let sub = email.as_ref().to_owned();
 
     let claims = Claims { sub, exp };
 
-    create_token(&claims).map_err(|e| GenerateTokenError::TokenError(e.into()).into())
+    create_token(&claims)
 }
 
-fn create_token(claims: &Claims) -> Result<String, jsonwebtoken::errors::Error> {
+fn create_token(claims: &Claims) -> Result<String> {
     encode(
         &jsonwebtoken::Header::default(),
         &claims,
         &EncodingKey::from_secret(JWT_SECRET.as_bytes()),
     )
+    .wrap_err("Failed to encode token")
 }
 
 pub async fn validate_token(
@@ -79,14 +82,10 @@ pub async fn validate_token(
     let is_token_banned = banned_token_store
         .contains_token(token)
         .await
-        .map_err(|_| {
-            jsonwebtoken::errors::new_error(jsonwebtoken::errors::ErrorKind::InvalidToken)
-        })?;
+        .wrap_err("Failed to verify if the token is banned.")?;
 
     if is_token_banned {
-        return Err(
-            jsonwebtoken::errors::new_error(jsonwebtoken::errors::ErrorKind::InvalidToken).into(),
-        );
+        return Err(eyre!("Token is banned."));
     }
 
     decode::<Claims>(
@@ -95,7 +94,7 @@ pub async fn validate_token(
         &Validation::default(),
     )
     .map(|data| data.claims)
-    .map_err(|e| e.into())
+    .wrap_err("Failed to decode token.")
 }
 
 #[cfg(test)]

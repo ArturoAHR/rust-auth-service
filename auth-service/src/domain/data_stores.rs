@@ -1,4 +1,4 @@
-use color_eyre::eyre::{self, Report};
+use color_eyre::eyre::{Report, Result};
 use thiserror::Error;
 
 use crate::domain::parse::{Email, LoginAttemptId, TwoFactorAuthCode};
@@ -30,9 +30,9 @@ impl PartialEq for UserStoreError {
 
 #[async_trait::async_trait]
 pub trait UserStore: Send + Sync {
-    async fn add_user(&mut self, user: User) -> eyre::Result<()>;
-    async fn get_user(&self, email: &Email) -> eyre::Result<User>;
-    async fn validate_user(&self, email: &Email, password: &str) -> eyre::Result<()>;
+    async fn add_user(&mut self, user: User) -> Result<()>;
+    async fn get_user(&self, email: &Email) -> Result<User>;
+    async fn validate_user(&self, email: &Email, password: &str) -> Result<()>;
 }
 
 #[derive(Debug, Error)]
@@ -52,8 +52,8 @@ impl PartialEq for BannedTokenStoreError {
 
 #[async_trait::async_trait]
 pub trait BannedTokenStore: Send + Sync {
-    async fn ban_token(&mut self, token: &str) -> Result<(), BannedTokenStoreError>;
-    async fn contains_token(&self, token: &str) -> Result<bool, BannedTokenStoreError>;
+    async fn ban_token(&mut self, token: &str) -> Result<()>;
+    async fn contains_token(&self, token: &str) -> Result<bool>;
 }
 
 #[derive(Debug, Error)]
@@ -81,10 +81,7 @@ pub trait TwoFactorAuthCodeStore: Send + Sync {
         email: Email,
         login_attempt_id: LoginAttemptId,
         code: TwoFactorAuthCode,
-    ) -> Result<(), TwoFactorAuthCodeStoreError>;
-    async fn remove_code(&mut self, email: &Email) -> Result<(), TwoFactorAuthCodeStoreError>;
-    async fn get_code(
-        &self,
-        email: &Email,
-    ) -> Result<(LoginAttemptId, TwoFactorAuthCode), TwoFactorAuthCodeStoreError>;
+    ) -> Result<()>;
+    async fn remove_code(&mut self, email: &Email) -> Result<()>;
+    async fn get_code(&self, email: &Email) -> Result<(LoginAttemptId, TwoFactorAuthCode)>;
 }

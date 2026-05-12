@@ -1,6 +1,7 @@
+use std::convert::TryInto;
 use std::sync::Arc;
-use std::{convert::TryInto, num::TryFromIntError};
 
+use color_eyre::eyre::{Context, Result};
 use redis::{ConnectionLike, TypedCommands};
 use tokio::sync::RwLock;
 
@@ -21,30 +22,33 @@ impl<C: ConnectionLike + Send + Sync> RedisBannedTokenStore<C> {
 
 #[async_trait::async_trait]
 impl<C: ConnectionLike + Send + Sync> BannedTokenStore for RedisBannedTokenStore<C> {
-    async fn ban_token(&mut self, token: &str) -> Result<(), BannedTokenStoreError> {
+    async fn ban_token(&mut self, token: &str) -> Result<()> {
         let key = get_key(token);
 
         let mut connection = self.connection.write().await;
 
         let expiration_time_seconds: u64 = TOKEN_TTL_SECONDS
             .try_into()
-            .map_err(|e: TryFromIntError| BannedTokenStoreError::UnexpectedError(e.into()))?;
+            .wrap_err("Failed to parse token expiration time.")
+            .map_err(BannedTokenStoreError::UnexpectedError)?;
 
         connection
             .set_ex(key, true, expiration_time_seconds)
-            .map_err(|e| BannedTokenStoreError::UnexpectedError(e.into()))?;
+            .wrap_err("Failed to set banned token in Redis.")
+            .map_err(BannedTokenStoreError::UnexpectedError)?;
 
         Ok(())
     }
 
-    async fn contains_token(&self, token: &str) -> Result<bool, BannedTokenStoreError> {
+    async fn contains_token(&self, token: &str) -> Result<bool> {
         let key = get_key(token);
 
         let mut connection = self.connection.write().await;
 
         let value = connection
             .get(key)
-            .map_err(|e| BannedTokenStoreError::UnexpectedError(e.into()))?;
+            .wrap_err("Failed to get banned token from Redis.")
+            .map_err(BannedTokenStoreError::UnexpectedError)?;
 
         Ok(value.is_some())
     }

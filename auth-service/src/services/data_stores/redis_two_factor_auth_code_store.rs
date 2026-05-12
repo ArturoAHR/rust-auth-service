@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use color_eyre::eyre::eyre;
+use color_eyre::eyre::{Context, Result};
 use redis::{ConnectionLike, TypedCommands};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
@@ -27,7 +27,7 @@ impl<C: ConnectionLike + Send + Sync> TwoFactorAuthCodeStore for RedisTwoFactorA
         email: Email,
         login_attempt_id: LoginAttemptId,
         code: TwoFactorAuthCode,
-    ) -> Result<(), TwoFactorAuthCodeStoreError> {
+    ) -> Result<()> {
         let key = get_key(&email);
 
         let record = TwoFactorAuthCodeRecord(
@@ -36,49 +36,54 @@ impl<C: ConnectionLike + Send + Sync> TwoFactorAuthCodeStore for RedisTwoFactorA
         );
 
         let serialized_record = serde_json::to_string(&record)
-            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
+            .wrap_err("Failed to serialize two factor auth record.")
+            .map_err(TwoFactorAuthCodeStoreError::UnexpectedError)?;
 
         let mut connection = self.connection.write().await;
 
         connection
             .set_ex(key, serialized_record, RECORD_EXPIRATION_TIME_SECONDS)
-            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
+            .wrap_err("Failed to set two factor auth code in Redis.")
+            .map_err(TwoFactorAuthCodeStoreError::UnexpectedError)?;
 
         Ok(())
     }
 
-    async fn remove_code(&mut self, email: &Email) -> Result<(), TwoFactorAuthCodeStoreError> {
+    async fn remove_code(&mut self, email: &Email) -> Result<()> {
         let key = get_key(&email);
 
         let mut connection = self.connection.write().await;
 
         connection
             .del(key)
-            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
+            .wrap_err("Failed to remove two factor auth code from Redis")
+            .map_err(TwoFactorAuthCodeStoreError::UnexpectedError)?;
 
         Ok(())
     }
 
-    async fn get_code(
-        &self,
-        email: &Email,
-    ) -> Result<(LoginAttemptId, TwoFactorAuthCode), TwoFactorAuthCodeStoreError> {
+    async fn get_code(&self, email: &Email) -> Result<(LoginAttemptId, TwoFactorAuthCode)> {
         let key = get_key(&email);
 
         let mut connection = self.connection.write().await;
 
         let raw_record = connection
             .get(key)
-            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?
-            .ok_or(TwoFactorAuthCodeStoreError::LoginAttemptIdNotFound)?;
+            .wrap_err("Failed to get two factor auth code from Redis.")
+            .map_err(TwoFactorAuthCodeStoreError::UnexpectedError)?
+            .ok_or(TwoFactorAuthCodeStoreError::LoginAttemptIdNotFound)
+            .wrap_err("Login attempt was not found in Redis.")?;
 
         let record: TwoFactorAuthCodeRecord = serde_json::from_str(&raw_record)
-            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(e.into()))?;
+            .wrap_err("Failed to deserialized retrieved two factor auth code record.")
+            .map_err(TwoFactorAuthCodeStoreError::UnexpectedError)?;
 
         let login_attempt_id = LoginAttemptId::parse(record.0)
-            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(eyre!(e)))?;
+            .wrap_err("Failed to parse login attempt retrieved.")
+            .map_err(TwoFactorAuthCodeStoreError::UnexpectedError)?;
         let two_factor_auth_code = TwoFactorAuthCode::parse(record.1)
-            .map_err(|e| TwoFactorAuthCodeStoreError::UnexpectedError(eyre!(e)))?;
+            .wrap_err("Failed to parse two factor auth code retrieved.")
+            .map_err(TwoFactorAuthCodeStoreError::UnexpectedError)?;
 
         Ok((login_attempt_id, two_factor_auth_code))
     }
@@ -156,7 +161,13 @@ mod tests {
 
         let email = Email::parse("example@email.com".to_owned()).unwrap();
 
-        let get_code_error = store.get_code(&email).await.err().unwrap();
+        let get_code_error = store
+            .get_code(&email)
+            .await
+            .err()
+            .unwrap()
+            .downcast::<TwoFactorAuthCodeStoreError>()
+            .unwrap();
 
         assert_eq!(
             get_code_error,
@@ -203,7 +214,13 @@ mod tests {
 
         store.remove_code(&email).await.unwrap();
 
-        let get_code_error = store.get_code(&email).await.err().unwrap();
+        let get_code_error = store
+            .get_code(&email)
+            .await
+            .err()
+            .unwrap()
+            .downcast::<TwoFactorAuthCodeStoreError>()
+            .unwrap();
 
         assert_eq!(
             get_code_error,

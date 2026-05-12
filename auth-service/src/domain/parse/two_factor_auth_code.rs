@@ -1,12 +1,13 @@
+use color_eyre::eyre::{eyre, Result};
 use rand::RngExt;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TwoFactorAuthCode(String);
 
 impl TwoFactorAuthCode {
-    pub fn parse(code: String) -> Result<Self, String> {
+    pub fn parse(code: String) -> Result<Self> {
         if code.len() != 6 || code.chars().any(|digit| !digit.is_ascii_digit()) {
-            return Err("Invalid code".to_owned());
+            return Err(eyre!("Invalid code".to_owned()));
         }
 
         Ok(TwoFactorAuthCode(code))

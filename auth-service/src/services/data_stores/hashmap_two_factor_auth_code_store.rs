@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use color_eyre::eyre::Result;
+
 use crate::domain::{
     parse::{Email, LoginAttemptId, TwoFactorAuthCode},
     TwoFactorAuthCodeStore, TwoFactorAuthCodeStoreError,
@@ -17,22 +19,19 @@ impl TwoFactorAuthCodeStore for HashMapTwoFactorAuthCodeStore {
         email: Email,
         login_attempt_id: LoginAttemptId,
         code: TwoFactorAuthCode,
-    ) -> Result<(), TwoFactorAuthCodeStoreError> {
+    ) -> Result<()> {
         self.codes.insert(email, (login_attempt_id, code));
 
         Ok(())
     }
 
-    async fn remove_code(&mut self, email: &Email) -> Result<(), TwoFactorAuthCodeStoreError> {
+    async fn remove_code(&mut self, email: &Email) -> Result<()> {
         self.codes.remove(email);
 
         Ok(())
     }
 
-    async fn get_code(
-        &self,
-        email: &Email,
-    ) -> Result<(LoginAttemptId, TwoFactorAuthCode), TwoFactorAuthCodeStoreError> {
+    async fn get_code(&self, email: &Email) -> Result<(LoginAttemptId, TwoFactorAuthCode)> {
         let login_attempt_code = self
             .codes
             .get(email)
@@ -88,7 +87,13 @@ mod tests {
 
         let email = Email::parse("example@email.com".to_owned()).unwrap();
 
-        let get_code_error = store.get_code(&email).await.err().unwrap();
+        let get_code_error = store
+            .get_code(&email)
+            .await
+            .err()
+            .unwrap()
+            .downcast::<TwoFactorAuthCodeStoreError>()
+            .unwrap();
 
         assert_eq!(
             get_code_error,

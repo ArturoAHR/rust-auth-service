@@ -1,6 +1,6 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_extra::extract::CookieJar;
-use color_eyre::eyre::eyre;
+use color_eyre::eyre::{eyre, Context};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -63,8 +63,9 @@ async fn handle_no_2fa(
     jar: CookieJar,
     email: &Email,
 ) -> Result<(CookieJar, (StatusCode, Json<LoginResponse>)), AuthApiError> {
-    let auth_cookie =
-        generate_auth_cookie(&email).map_err(|e| AuthApiError::UnexpectedError(eyre!(e)))?;
+    let auth_cookie = generate_auth_cookie(&email)
+        .wrap_err("Failed to generate auth cookie.")
+        .map_err(AuthApiError::UnexpectedError)?;
 
     let updated_jar = jar.add(auth_cookie);
 
@@ -91,7 +92,7 @@ async fn handle_2fa(
             two_factor_auth_code.clone(),
         )
         .await
-        .map_err(|e| AuthApiError::UnexpectedError(e.into()))?;
+        .map_err(AuthApiError::UnexpectedError)?;
 
     let email_client = state.email_client.read().await;
 
@@ -102,7 +103,8 @@ async fn handle_2fa(
             two_factor_auth_code.as_ref().into(),
         )
         .await
-        .map_err(|e| AuthApiError::UnexpectedError(eyre!(e)))?;
+        .wrap_err("Failed to send two factor auth code email")
+        .map_err(AuthApiError::UnexpectedError)?;
 
     let response = LoginResponse::TwoFactorAuth(TwoFactorAuthResponse {
         message: "2FA required".to_owned(),
