@@ -1,5 +1,6 @@
 use dotenvy::dotenv;
 use lazy_static::lazy_static;
+use secrecy::SecretString;
 
 pub mod env {
     pub const DATABASE_URL_ENV_VAR: &str = "DATABASE_URL";
@@ -18,12 +19,12 @@ pub mod test {
 }
 
 lazy_static! {
-    pub static ref JWT_SECRET: String = get_jwt_secret();
-    pub static ref DATABASE_URL: String = get_database_url();
+    pub static ref JWT_SECRET: SecretString = get_jwt_secret();
+    pub static ref DATABASE_URL: SecretString = get_database_url();
     pub static ref REDIS_HOST_NAME: String = get_redis_host();
 }
 
-fn get_jwt_secret() -> String {
+fn get_jwt_secret() -> SecretString {
     dotenv().ok();
 
     let secret = std::env::var(env::JWT_SECRET_ENV_VAR).expect("JWT_SECRET must be set.");
@@ -32,10 +33,10 @@ fn get_jwt_secret() -> String {
         panic!("JWT_SECRET must not be empty.");
     }
 
-    secret
+    SecretString::new(secret.into_boxed_str())
 }
 
-fn get_database_url() -> String {
+fn get_database_url() -> SecretString {
     dotenv().ok();
 
     let secret = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set.");
@@ -44,7 +45,7 @@ fn get_database_url() -> String {
         panic!("DATABASE_URL must not be empty.");
     }
 
-    secret
+    SecretString::new(secret.into_boxed_str())
 }
 
 fn get_redis_host() -> String {

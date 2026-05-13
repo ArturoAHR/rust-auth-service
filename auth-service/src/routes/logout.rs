@@ -1,5 +1,6 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse};
 use axum_extra::extract::{cookie::Cookie, CookieJar};
+use secrecy::SecretString;
 use tracing::instrument;
 
 use crate::{
@@ -17,7 +18,7 @@ pub async fn logout(
         .get(&JWT_COOKIE_NAME)
         .ok_or(AuthApiError::MissingToken)?;
 
-    let token = cookie.value().to_owned();
+    let token = SecretString::new(cookie.value().to_owned().into_boxed_str());
     let mut banned_token_store = state.banned_token_store.write().await;
 
     validate_token(&token, &*banned_token_store)

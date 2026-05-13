@@ -43,13 +43,18 @@ impl TwoFactorAuthCodeStore for HashMapTwoFactorAuthCodeStore {
 
 #[cfg(test)]
 mod tests {
+    use secrecy::SecretString;
+
     use super::*;
 
     #[tokio::test]
     async fn should_add_two_factor_auth_code() {
         let mut store = HashMapTwoFactorAuthCodeStore::default();
 
-        let email = Email::parse("example@email.com".to_owned()).unwrap();
+        let email = Email::parse(SecretString::new(
+            "example@email.com".to_owned().into_boxed_str(),
+        ))
+        .unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFactorAuthCode::default();
 
@@ -67,7 +72,10 @@ mod tests {
     async fn should_get_two_factor_auth_code() {
         let mut store = HashMapTwoFactorAuthCodeStore::default();
 
-        let email = Email::parse("example@email.com".to_owned()).unwrap();
+        let email = Email::parse(SecretString::new(
+            "example@email.com".to_owned().into_boxed_str(),
+        ))
+        .unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFactorAuthCode::default();
 
@@ -85,7 +93,10 @@ mod tests {
     async fn should_fail_to_get_nonexistent_code() {
         let store = HashMapTwoFactorAuthCodeStore::default();
 
-        let email = Email::parse("example@email.com".to_owned()).unwrap();
+        let email = Email::parse(SecretString::new(
+            "example@email.com".to_owned().into_boxed_str(),
+        ))
+        .unwrap();
 
         let get_code_error = store
             .get_code(&email)
@@ -105,7 +116,10 @@ mod tests {
     async fn should_remove_two_factor_auth_code() {
         let mut store = HashMapTwoFactorAuthCodeStore::default();
 
-        let email = Email::parse("example@email.com".to_owned()).unwrap();
+        let email = Email::parse(SecretString::new(
+            "example@email.com".to_owned().into_boxed_str(),
+        ))
+        .unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFactorAuthCode::default();
 

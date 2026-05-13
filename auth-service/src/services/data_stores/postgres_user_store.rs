@@ -1,4 +1,5 @@
 use color_eyre::eyre::{eyre, Result};
+use secrecy::{ExposeSecret, SecretString};
 use sqlx::PgPool;
 use tracing::instrument;
 
@@ -9,8 +10,8 @@ use crate::domain::{
 
 #[derive(sqlx::FromRow)]
 struct DatabaseUser {
-    email: String,
-    password_hash: String,
+    email: SecretString,
+    password_hash: SecretString,
     requires_2fa: bool,
 }
 
@@ -30,8 +31,8 @@ impl UserStore for PostgresUserStore {
     async fn add_user(&mut self, user: User) -> Result<()> {
         sqlx::query!(
             "INSERT INTO users (email, password_hash, requires_2fa) VALUES ($1, $2, $3)",
-            user.email.as_ref(),
-            user.password.as_ref(),
+            user.email.as_ref().expose_secret(),
+            user.password.as_ref().expose_secret(),
             user.requires_2fa
         )
         .execute(&self.pool)
@@ -46,7 +47,7 @@ impl UserStore for PostgresUserStore {
         let user = sqlx::query_as!(
             DatabaseUser,
             "SELECT * FROM users WHERE email = $1",
-            email.as_ref()
+            email.as_ref().expose_secret()
         )
         .fetch_optional(&self.pool)
         .await
@@ -62,7 +63,7 @@ impl UserStore for PostgresUserStore {
     }
 
     #[instrument(name = "Validating user credentials in PostgreSQL", skip_all)]
-    async fn validate_user(&self, email: &Email, password: &str) -> Result<()> {
+    async fn validate_user(&self, email: &Email, password: &SecretString) -> Result<()> {
         let user = self.get_user(email).await?;
 
         user.password
@@ -86,8 +87,11 @@ mod tests {
         let mut store = PostgresUserStore::new(pool);
 
         let user = User::new(
-            Email::parse("example@email.com".to_owned()).unwrap(),
-            HashedPassword::parse("password123".to_owned())
+            Email::parse(SecretString::new(
+                "example@email.com".to_owned().into_boxed_str(),
+            ))
+            .unwrap(),
+            HashedPassword::parse(SecretString::new("password123".to_owned().into_boxed_str()))
                 .await
                 .unwrap(),
             false,
@@ -107,7 +111,10 @@ mod tests {
     async fn should_fail_to_get_non_existing_user(pool: PgPool) {
         let store = PostgresUserStore::new(pool);
 
-        let non_existing_user_email = Email::parse("example@email".to_owned()).unwrap();
+        let non_existing_user_email = Email::parse(SecretString::new(
+            "example@email.com".to_owned().into_boxed_str(),
+        ))
+        .unwrap();
 
         let user_retrieval_result = store.get_user(&non_existing_user_email).await;
 
@@ -127,10 +134,13 @@ mod tests {
     async fn should_validate_user(pool: PgPool) -> Result<()> {
         let mut store = PostgresUserStore::new(pool);
 
-        let password = "password123".to_owned();
+        let password = SecretString::new("password123".to_owned().into_boxed_str());
 
         let user = User::new(
-            Email::parse("example@email.com".to_owned()).unwrap(),
+            Email::parse(SecretString::new(
+                "example@email.com".to_owned().into_boxed_str(),
+            ))
+            .unwrap(),
             HashedPassword::parse(password.clone()).await.unwrap(),
             false,
         );
@@ -148,8 +158,11 @@ mod tests {
         let mut store = PostgresUserStore::new(pool);
 
         let user = User::new(
-            Email::parse("example@email.com".to_owned()).unwrap(),
-            HashedPassword::parse("password123".to_owned())
+            Email::parse(SecretString::new(
+                "example@email.com".to_owned().into_boxed_str(),
+            ))
+            .unwrap(),
+            HashedPassword::parse(SecretString::new("password123".to_owned().into_boxed_str()))
                 .await
                 .unwrap(),
             false,
@@ -157,7 +170,7 @@ mod tests {
 
         store.add_user(user.clone()).await.unwrap();
 
-        let incorrect_password = "another password".to_owned();
+        let incorrect_password = SecretString::new("another password".to_owned().into_boxed_str());
 
         let validation_result = store.validate_user(&user.email, &incorrect_password).await;
 
@@ -177,8 +190,12 @@ mod tests {
     async fn should_fail_to_validate_non_existing_user(pool: PgPool) {
         let store = PostgresUserStore::new(pool);
 
-        let non_existing_user_email = Email::parse("example@email".to_owned()).unwrap();
-        let non_existing_user_password = "password123".to_owned();
+        let non_existing_user_email = Email::parse(SecretString::new(
+            "example@email.com".to_owned().into_boxed_str(),
+        ))
+        .unwrap();
+        let non_existing_user_password =
+            SecretString::new("password123".to_owned().into_boxed_str());
 
         let validation_result = store
             .validate_user(&non_existing_user_email, &non_existing_user_password)

@@ -1,6 +1,7 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_extra::extract::CookieJar;
 use color_eyre::eyre::Context;
+use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -15,8 +16,8 @@ use crate::{
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
-    pub email: String,
-    pub password: String,
+    pub email: SecretString,
+    pub password: SecretString,
 }
 
 #[derive(Debug, Serialize)]
@@ -102,7 +103,7 @@ async fn handle_2fa(
         .send_email(
             &email,
             "Two Factor Authentication Code",
-            two_factor_auth_code.as_ref().into(),
+            two_factor_auth_code.as_ref().expose_secret().into(),
         )
         .await
         .wrap_err("Failed to send two factor auth code email")
@@ -110,7 +111,7 @@ async fn handle_2fa(
 
     let response = LoginResponse::TwoFactorAuth(TwoFactorAuthResponse {
         message: "2FA required".to_owned(),
-        login_attempt_id: login_attempt_id.as_ref().into(),
+        login_attempt_id: login_attempt_id.as_ref().expose_secret().into(),
     });
 
     Ok((jar, (StatusCode::PARTIAL_CONTENT, Json::from(response))))

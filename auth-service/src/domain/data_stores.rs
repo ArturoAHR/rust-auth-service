@@ -1,4 +1,5 @@
 use color_eyre::eyre::{Report, Result};
+use secrecy::SecretString;
 use thiserror::Error;
 
 use crate::domain::parse::{Email, LoginAttemptId, TwoFactorAuthCode};
@@ -32,7 +33,7 @@ impl PartialEq for UserStoreError {
 pub trait UserStore: Send + Sync {
     async fn add_user(&mut self, user: User) -> Result<()>;
     async fn get_user(&self, email: &Email) -> Result<User>;
-    async fn validate_user(&self, email: &Email, password: &str) -> Result<()>;
+    async fn validate_user(&self, email: &Email, password: &SecretString) -> Result<()>;
 }
 
 #[derive(Debug, Error)]
@@ -52,8 +53,8 @@ impl PartialEq for BannedTokenStoreError {
 
 #[async_trait::async_trait]
 pub trait BannedTokenStore: Send + Sync {
-    async fn ban_token(&mut self, token: &str) -> Result<()>;
-    async fn contains_token(&self, token: &str) -> Result<bool>;
+    async fn ban_token(&mut self, token: &SecretString) -> Result<()>;
+    async fn contains_token(&self, token: &SecretString) -> Result<bool>;
 }
 
 #[derive(Debug, Error)]

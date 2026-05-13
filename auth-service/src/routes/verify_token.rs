@@ -1,4 +1,5 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use secrecy::SecretString;
 use serde::Deserialize;
 use tracing::instrument;
 
@@ -6,7 +7,7 @@ use crate::{domain::AuthApiError, utils::auth::validate_token, AppState};
 
 #[derive(Deserialize)]
 pub struct VerifyTokenRequest {
-    token: String,
+    token: SecretString,
 }
 
 #[instrument(name = "Verify token", skip_all)]

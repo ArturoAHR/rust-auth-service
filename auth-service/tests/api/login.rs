@@ -2,6 +2,7 @@ use auth_service::{
     domain::parse::Email, routes::TwoFactorAuthResponse, utils::constants::JWT_COOKIE_NAME,
     ErrorResponse,
 };
+use secrecy::{ExposeSecret, SecretString};
 use serde_json::json;
 
 use crate::helpers::{get_random_email, TestApp};
@@ -192,11 +193,14 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
         .two_factor_auth_code_store
         .read()
         .await
-        .get_code(&Email::parse(user_email).unwrap())
+        .get_code(&Email::parse(SecretString::new(user_email.into_boxed_str())).unwrap())
         .await
         .unwrap();
 
-    assert_eq!(login_attempt_id, added_code_record.0.as_ref());
+    assert_eq!(
+        login_attempt_id,
+        added_code_record.0.as_ref().expose_secret()
+    );
 
     app.clean_up().await;
 }

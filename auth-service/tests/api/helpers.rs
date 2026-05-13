@@ -12,6 +12,7 @@ use auth_service::{
     AppState, Application,
 };
 use reqwest::{cookie::Jar, Client, Response};
+use secrecy::{ExposeSecret, SecretString};
 use serde::Serialize;
 use sqlx::{postgres::PgPoolOptions, Connection, PgConnection, PgPool};
 use tokio::sync::RwLock;
@@ -158,7 +159,7 @@ pub fn get_random_email() -> String {
 }
 
 async fn configure_postgresql() -> PgPool {
-    let database_url = DATABASE_URL.to_owned();
+    let database_url = DATABASE_URL.expose_secret().to_owned();
 
     let database_name = Uuid::new_v4().to_string();
 
@@ -166,7 +167,7 @@ async fn configure_postgresql() -> PgPool {
 
     let database_url_with_name = format!("{}/{}", database_url, database_name);
 
-    get_postgres_pool(&database_url_with_name)
+    get_postgres_pool(&SecretString::new(database_url_with_name.into_boxed_str()))
         .await
         .expect("Failed to create Postgres connection pool.")
 }
@@ -196,7 +197,7 @@ async fn configure_database(database_url: &str, database_name: &str) {
 }
 
 async fn delete_database(database_name: &str) {
-    let database_url = DATABASE_URL.to_owned();
+    let database_url = DATABASE_URL.expose_secret().to_owned();
 
     let mut connection = PgConnection::connect(&database_url)
         .await

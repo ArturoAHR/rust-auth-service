@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use color_eyre::eyre::{Context, Result};
 use redis::{ConnectionLike, TypedCommands};
+use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::instrument;
@@ -33,8 +34,8 @@ impl<C: ConnectionLike + Send + Sync> TwoFactorAuthCodeStore for RedisTwoFactorA
         let key = get_key(&email);
 
         let record = TwoFactorAuthCodeRecord(
-            login_attempt_id.as_ref().to_owned(),
-            code.as_ref().to_owned(),
+            login_attempt_id.as_ref().expose_secret().to_owned(),
+            code.as_ref().expose_secret().to_owned(),
         );
 
         let serialized_record = serde_json::to_string(&record)
@@ -82,12 +83,13 @@ impl<C: ConnectionLike + Send + Sync> TwoFactorAuthCodeStore for RedisTwoFactorA
             .wrap_err("Failed to deserialized retrieved two factor auth code record.")
             .map_err(TwoFactorAuthCodeStoreError::UnexpectedError)?;
 
-        let login_attempt_id = LoginAttemptId::parse(record.0)
+        let login_attempt_id = LoginAttemptId::parse(SecretString::new(record.0.into_boxed_str()))
             .wrap_err("Failed to parse login attempt retrieved.")
             .map_err(TwoFactorAuthCodeStoreError::UnexpectedError)?;
-        let two_factor_auth_code = TwoFactorAuthCode::parse(record.1)
-            .wrap_err("Failed to parse two factor auth code retrieved.")
-            .map_err(TwoFactorAuthCodeStoreError::UnexpectedError)?;
+        let two_factor_auth_code =
+            TwoFactorAuthCode::parse(SecretString::new(record.1.into_boxed_str()))
+                .wrap_err("Failed to parse two factor auth code retrieved.")
+                .map_err(TwoFactorAuthCodeStoreError::UnexpectedError)?;
 
         Ok((login_attempt_id, two_factor_auth_code))
     }
@@ -100,13 +102,18 @@ const RECORD_EXPIRATION_TIME_SECONDS: u64 = 600;
 const TWO_FACTOR_AUTH_CODE_PREFIX: &str = "two_factor_auth_code:";
 
 fn get_key(email: &Email) -> String {
-    format!("{}{}", TWO_FACTOR_AUTH_CODE_PREFIX, email.as_ref())
+    format!(
+        "{}{}",
+        TWO_FACTOR_AUTH_CODE_PREFIX,
+        email.as_ref().expose_secret()
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use redis::Value;
     use redis_test::{MockCmd, MockRedisConnection};
+    use secrecy::SecretString;
 
     use super::*;
 
@@ -118,13 +125,16 @@ mod tests {
 
     #[tokio::test]
     async fn should_add_and_get_two_factor_auth_code() {
-        let email = Email::parse("example@email.com".to_owned()).unwrap();
+        let email = Email::parse(SecretString::new(
+            "example@email.com".to_owned().into_boxed_str(),
+        ))
+        .unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFactorAuthCode::default();
 
         let serialized_record = serde_json::to_string(&TwoFactorAuthCodeRecord(
-            login_attempt_id.as_ref().to_owned(),
-            code.as_ref().to_owned(),
+            login_attempt_id.as_ref().expose_secret().to_owned(),
+            code.as_ref().expose_secret().to_owned(),
         ))
         .unwrap();
 
@@ -163,7 +173,10 @@ mod tests {
 
         let store = create_store(commands);
 
-        let email = Email::parse("example@email.com".to_owned()).unwrap();
+        let email = Email::parse(SecretString::new(
+            "example@email.com".to_owned().into_boxed_str(),
+        ))
+        .unwrap();
 
         let get_code_error = store
             .get_code(&email)
@@ -181,13 +194,16 @@ mod tests {
 
     #[tokio::test]
     async fn should_remove_two_factor_auth_code() {
-        let email = Email::parse("example@email.com".to_owned()).unwrap();
+        let email = Email::parse(SecretString::new(
+            "example@email.com".to_owned().into_boxed_str(),
+        ))
+        .unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFactorAuthCode::default();
 
         let serialized_record = serde_json::to_string(&TwoFactorAuthCodeRecord(
-            login_attempt_id.as_ref().to_owned(),
-            code.as_ref().to_owned(),
+            login_attempt_id.as_ref().expose_secret().to_owned(),
+            code.as_ref().expose_secret().to_owned(),
         ))
         .unwrap();
 

@@ -1,6 +1,7 @@
 use auth_service::{
     domain::parse::Email, routes::TwoFactorAuthResponse, utils::constants::JWT_COOKIE_NAME,
 };
+use secrecy::{ExposeSecret, SecretString};
 use serde_json::json;
 use uuid::Uuid;
 
@@ -130,7 +131,7 @@ async fn should_return_401_if_an_old_code_is_used() {
         .login_attempt_id;
 
     let two_factor_code = two_factor_code_store
-        .get_code(&Email::parse(user_email.clone()).unwrap())
+        .get_code(&Email::parse(SecretString::new(user_email.clone().into_boxed_str())).unwrap())
         .await
         .unwrap()
         .1;
@@ -139,7 +140,7 @@ async fn should_return_401_if_an_old_code_is_used() {
 
     let _ = app.post_login(&login_payload).await;
 
-    let verify_2fa_payload = json!({"email": user_email, "loginAttemptId": login_attempt_id, "2FACode": two_factor_code.as_ref()});
+    let verify_2fa_payload = json!({"email": user_email, "loginAttemptId": login_attempt_id, "2FACode": two_factor_code.as_ref().expose_secret()});
 
     let response = app.post_verify_2fa(&verify_2fa_payload).await;
 
@@ -179,14 +180,14 @@ async fn should_return_200_if_correct_code() {
         .login_attempt_id;
 
     let two_factor_code = two_factor_code_store
-        .get_code(&Email::parse(user_email.clone()).unwrap())
+        .get_code(&Email::parse(SecretString::new(user_email.clone().into_boxed_str())).unwrap())
         .await
         .unwrap()
         .1;
 
     drop(two_factor_code_store);
 
-    let verify_2fa_payload = json!({"email": user_email, "loginAttemptId": login_attempt_id, "2FACode": two_factor_code.as_ref()});
+    let verify_2fa_payload = json!({"email": user_email, "loginAttemptId": login_attempt_id, "2FACode": two_factor_code.as_ref().expose_secret()});
 
     let response = app.post_verify_2fa(&verify_2fa_payload).await;
 
@@ -233,14 +234,14 @@ async fn should_return_401_if_same_code_is_used_twice() {
         .login_attempt_id;
 
     let two_factor_code = two_factor_code_store
-        .get_code(&Email::parse(user_email.clone()).unwrap())
+        .get_code(&Email::parse(SecretString::new(user_email.clone().into_boxed_str())).unwrap())
         .await
         .unwrap()
         .1;
 
     drop(two_factor_code_store);
 
-    let verify_2fa_payload = json!({"email": user_email, "loginAttemptId": login_attempt_id, "2FACode": two_factor_code.as_ref()});
+    let verify_2fa_payload = json!({"email": user_email, "loginAttemptId": login_attempt_id, "2FACode": two_factor_code.as_ref().expose_secret()});
 
     let _ = app.post_verify_2fa(&verify_2fa_payload).await;
 

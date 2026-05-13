@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use color_eyre::eyre::{Context, Result};
 use redis::{ConnectionLike, TypedCommands};
+use secrecy::{ExposeSecret, SecretString};
 use tokio::sync::RwLock;
 use tracing::instrument;
 
@@ -24,7 +25,7 @@ impl<C: ConnectionLike + Send + Sync> RedisBannedTokenStore<C> {
 #[async_trait::async_trait]
 impl<C: ConnectionLike + Send + Sync> BannedTokenStore for RedisBannedTokenStore<C> {
     #[instrument(name = "Add banned token in Redis", skip_all)]
-    async fn ban_token(&mut self, token: &str) -> Result<()> {
+    async fn ban_token(&mut self, token: &SecretString) -> Result<()> {
         let key = get_key(token);
 
         let mut connection = self.connection.write().await;
@@ -43,7 +44,7 @@ impl<C: ConnectionLike + Send + Sync> BannedTokenStore for RedisBannedTokenStore
     }
 
     #[instrument(name = "Check if token exists in Redis", skip_all)]
-    async fn contains_token(&self, token: &str) -> Result<bool> {
+    async fn contains_token(&self, token: &SecretString) -> Result<bool> {
         let key = get_key(token);
 
         let mut connection = self.connection.write().await;
@@ -59,8 +60,8 @@ impl<C: ConnectionLike + Send + Sync> BannedTokenStore for RedisBannedTokenStore
 
 const BANNED_TOKEN_KEY_PREFIX: &str = "banned_token:";
 
-fn get_key(token: &str) -> String {
-    format!("{}{}", BANNED_TOKEN_KEY_PREFIX, token)
+fn get_key(token: &SecretString) -> String {
+    format!("{}{}", BANNED_TOKEN_KEY_PREFIX, token.expose_secret())
 }
 
 #[cfg(test)]
@@ -82,7 +83,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_successfully_ban_and_check_banned_token() {
-        let token = "token";
+        let token = SecretString::new("token".to_owned().into_boxed_str());
 
         let mock_redis_commands = vec![
             MockCmd::new(
@@ -97,9 +98,9 @@ mod tests {
 
         let mut store = create_store(mock_redis_commands);
 
-        store.ban_token(token).await.unwrap();
+        store.ban_token(&token).await.unwrap();
 
-        let token_is_banned = store.contains_token(token).await.unwrap();
+        let token_is_banned = store.contains_token(&token).await.unwrap();
 
         assert!(token_is_banned);
     }
@@ -113,9 +114,9 @@ mod tests {
 
         let store = create_store(commands);
 
-        let token = "token";
+        let token = SecretString::new("token".to_owned().into_boxed_str());
 
-        let token_is_banned = store.contains_token(token).await.unwrap();
+        let token_is_banned = store.contains_token(&token).await.unwrap();
 
         assert!(!token_is_banned);
     }

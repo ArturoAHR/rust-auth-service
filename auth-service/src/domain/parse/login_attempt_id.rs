@@ -1,12 +1,19 @@
 use color_eyre::eyre::{Context, Result};
+use secrecy::{ExposeSecret, SecretString};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct LoginAttemptId(String);
+#[derive(Debug, Clone)]
+pub struct LoginAttemptId(SecretString);
+
+impl PartialEq for LoginAttemptId {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.expose_secret() == other.0.expose_secret()
+    }
+}
 
 impl LoginAttemptId {
-    pub fn parse(id: String) -> Result<Self> {
-        Uuid::parse_str(&id).wrap_err("Login attempt identifier parse failed")?;
+    pub fn parse(id: SecretString) -> Result<Self> {
+        Uuid::parse_str(&id.expose_secret()).wrap_err("Login attempt identifier parse failed")?;
 
         Ok(LoginAttemptId(id))
     }
@@ -17,12 +24,12 @@ impl Default for LoginAttemptId {
     fn default() -> Self {
         let uuid = Uuid::new_v4();
 
-        LoginAttemptId(uuid.to_string())
+        LoginAttemptId(SecretString::new(uuid.to_string().into_boxed_str()))
     }
 }
 
-impl AsRef<str> for LoginAttemptId {
-    fn as_ref(&self) -> &str {
+impl AsRef<SecretString> for LoginAttemptId {
+    fn as_ref(&self) -> &SecretString {
         &self.0
     }
 }

@@ -1,12 +1,24 @@
 use color_eyre::eyre::{eyre, Result};
 use rand::RngExt;
+use secrecy::{ExposeSecret, SecretString};
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct TwoFactorAuthCode(String);
+#[derive(Clone, Debug)]
+pub struct TwoFactorAuthCode(SecretString);
+
+impl PartialEq for TwoFactorAuthCode {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.expose_secret() == other.0.expose_secret()
+    }
+}
 
 impl TwoFactorAuthCode {
-    pub fn parse(code: String) -> Result<Self> {
-        if code.len() != 6 || code.chars().any(|digit| !digit.is_ascii_digit()) {
+    pub fn parse(code: SecretString) -> Result<Self> {
+        if code.expose_secret().len() != 6
+            || code
+                .expose_secret()
+                .chars()
+                .any(|digit| !digit.is_ascii_digit())
+        {
             return Err(eyre!("Invalid code".to_owned()));
         }
 
@@ -21,12 +33,12 @@ impl Default for TwoFactorAuthCode {
 
         let code_number = rng.random_range(100_000..=999_999);
 
-        TwoFactorAuthCode(code_number.to_string())
+        TwoFactorAuthCode(SecretString::new(code_number.to_string().into_boxed_str()))
     }
 }
 
-impl AsRef<str> for TwoFactorAuthCode {
-    fn as_ref(&self) -> &str {
+impl AsRef<SecretString> for TwoFactorAuthCode {
+    fn as_ref(&self) -> &SecretString {
         &self.0
     }
 }

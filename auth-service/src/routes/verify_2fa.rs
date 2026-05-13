@@ -1,5 +1,6 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_extra::extract::CookieJar;
+use secrecy::SecretString;
 use serde::Deserialize;
 use tracing::instrument;
 
@@ -14,11 +15,11 @@ use crate::{
 
 #[derive(Debug, Deserialize)]
 pub struct VerifyTwoFactorAuthRequest {
-    email: String,
+    email: SecretString,
     #[serde(rename = "loginAttemptId")]
-    login_attempt_id: String,
+    login_attempt_id: SecretString,
     #[serde(rename = "2FACode")]
-    two_factor_auth_code: String,
+    two_factor_auth_code: SecretString,
 }
 
 #[instrument(name = "Verify two factor authentication code", skip_all)]

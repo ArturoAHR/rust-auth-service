@@ -9,6 +9,7 @@ use axum::{
 };
 
 use redis::{Client, RedisResult};
+use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use tokio::{net::TcpListener, sync::RwLock};
@@ -20,7 +21,7 @@ pub mod services;
 pub mod utils;
 
 use domain::AuthApiError;
-use tracing::{error, info};
+use tracing::info;
 
 use crate::{
     domain::{BannedTokenStore, EmailClient, TwoFactorAuthCodeStore, UserStore},
@@ -132,8 +133,11 @@ impl Application {
     }
 }
 
-pub async fn get_postgres_pool(url: &str) -> Result<PgPool, sqlx::Error> {
-    PgPoolOptions::new().max_connections(5).connect(url).await
+pub async fn get_postgres_pool(url: &SecretString) -> Result<PgPool, sqlx::Error> {
+    PgPoolOptions::new()
+        .max_connections(5)
+        .connect(url.expose_secret())
+        .await
 }
 
 pub fn get_redis_client(redis_hostname: String) -> RedisResult<Client> {

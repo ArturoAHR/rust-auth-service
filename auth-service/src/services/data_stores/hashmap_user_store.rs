@@ -1,3 +1,4 @@
+use secrecy::SecretString;
 use std::collections::HashMap;
 
 use color_eyre::eyre::Result;
@@ -29,7 +30,7 @@ impl UserStore for HashMapUserStore {
         Err(UserStoreError::UserNotFound.into())
     }
 
-    async fn validate_user(&self, email: &Email, password: &str) -> Result<()> {
+    async fn validate_user(&self, email: &Email, password: &SecretString) -> Result<()> {
         let user = self.get_user(email).await?;
 
         user.password
@@ -52,8 +53,11 @@ mod tests {
         let mut store = HashMapUserStore::default();
 
         let user = User::new(
-            Email::parse("example@email.com".to_owned()).unwrap(),
-            HashedPassword::parse("password123".to_owned())
+            Email::parse(SecretString::new(
+                "example@email.com".to_owned().into_boxed_str(),
+            ))
+            .unwrap(),
+            HashedPassword::parse(SecretString::new("password123".to_owned().into_boxed_str()))
                 .await
                 .unwrap(),
             false,
@@ -76,8 +80,11 @@ mod tests {
         let mut store = HashMapUserStore::default();
 
         let user = User::new(
-            Email::parse("example@email.com".to_owned()).unwrap(),
-            HashedPassword::parse("password123".to_owned())
+            Email::parse(SecretString::new(
+                "example@email.com".to_owned().into_boxed_str(),
+            ))
+            .unwrap(),
+            HashedPassword::parse(SecretString::new("password123".to_owned().into_boxed_str()))
                 .await
                 .unwrap(),
             false,
@@ -96,7 +103,10 @@ mod tests {
     async fn should_fail_to_get_non_existing_user() {
         let store = HashMapUserStore::default();
 
-        let non_existing_user_email = Email::parse("example@email".to_owned()).unwrap();
+        let non_existing_user_email = Email::parse(SecretString::new(
+            "example@email.com".to_owned().into_boxed_str(),
+        ))
+        .unwrap();
 
         let user_retrieval_result = store.get_user(&non_existing_user_email).await;
 
@@ -114,10 +124,13 @@ mod tests {
     async fn should_validate_user() -> Result<()> {
         let mut store = HashMapUserStore::default();
 
-        let password = "password123".to_owned();
+        let password = SecretString::new("password123".to_owned().into_boxed_str());
 
         let user = User::new(
-            Email::parse("example@email.com".to_owned()).unwrap(),
+            Email::parse(SecretString::new(
+                "example@email.com".to_owned().into_boxed_str(),
+            ))
+            .unwrap(),
             HashedPassword::parse(password.clone()).await.unwrap(),
             false,
         );
@@ -132,8 +145,11 @@ mod tests {
         let mut store = HashMapUserStore::default();
 
         let user = User::new(
-            Email::parse("example@email.com".to_owned()).unwrap(),
-            HashedPassword::parse("password123".to_owned())
+            Email::parse(SecretString::new(
+                "example@email.com".to_owned().into_boxed_str(),
+            ))
+            .unwrap(),
+            HashedPassword::parse(SecretString::new("password123".to_owned().into_boxed_str()))
                 .await
                 .unwrap(),
             false,
@@ -141,7 +157,7 @@ mod tests {
 
         store.add_user(user.clone()).await.unwrap();
 
-        let incorrect_password = "another password".to_owned();
+        let incorrect_password = SecretString::new("another password".to_owned().into_boxed_str());
 
         let validation_result = store.validate_user(&user.email, &incorrect_password).await;
 
@@ -159,8 +175,12 @@ mod tests {
     async fn should_fail_to_validate_non_existing_user() {
         let store = HashMapUserStore::default();
 
-        let non_existing_user_email = Email::parse("example@email".to_owned()).unwrap();
-        let non_existing_user_password = "password123".to_owned();
+        let non_existing_user_email = Email::parse(SecretString::new(
+            "example@email.com".to_owned().into_boxed_str(),
+        ))
+        .unwrap();
+        let non_existing_user_password =
+            SecretString::new("password123".to_owned().into_boxed_str());
 
         let validation_result = store
             .validate_user(&non_existing_user_email, &non_existing_user_password)
