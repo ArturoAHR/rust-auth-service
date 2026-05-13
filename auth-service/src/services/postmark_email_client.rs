@@ -71,3 +71,135 @@ impl EmailClient for PostmarkEmailClient {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use fake::{
+        faker::{
+            internet::en::SafeEmail,
+            lorem::en::{Paragraph, Sentence},
+        },
+        Fake, Faker,
+    };
+    use serde_json::Value;
+    use tower_http::follow_redirect::policy::PolicyExt;
+    use wiremock::{
+        matchers::{any, header, header_exists, method, path},
+        Match, Mock, MockServer, Request, ResponseTemplate,
+    };
+
+    use crate::utils::constants::test::{self, email_client};
+
+    use super::*;
+
+    fn subject() -> String {
+        Sentence(1..2).fake()
+    }
+
+    fn content() -> String {
+        Paragraph(1..10).fake()
+    }
+
+    fn email() -> Email {
+        Email::parse(SecretString::new(
+            SafeEmail().fake::<String>().into_boxed_str(),
+        ))
+        .unwrap()
+    }
+
+    fn email_client(base_url: String) -> PostmarkEmailClient {
+        let http_client = Client::builder()
+            .timeout(test::email_client::TIMEOUT)
+            .build()
+            .unwrap();
+
+        PostmarkEmailClient::new(
+            base_url,
+            email(),
+            SecretString::new(Faker.fake::<String>().into_boxed_str()),
+            http_client,
+        )
+    }
+
+    struct SendEmailBodyMatcher;
+
+    impl Match for SendEmailBodyMatcher {
+        fn matches(&self, request: &Request) -> bool {
+            let result: Result<Value, _> = serde_json::from_slice(&request.body);
+
+            match result {
+                Ok(body) => {
+                    body.get("From").is_some()
+                        && body.get("To").is_some()
+                        && body.get("Subject").is_some()
+                        && body.get("HtmlBody").is_some()
+                        && body.get("TextBody").is_some()
+                        && body.get("MessageStream").is_some()
+                }
+                _ => false,
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn send_email_sends_the_expected_request() {
+        let mock_server = MockServer::start().await;
+        let email_client = email_client(mock_server.uri());
+
+        Mock::given(header_exists(POSTMARK_AUTH_HEADER))
+            .and(header("Content-Type", "application/json"))
+            .and(path("/email"))
+            .and(method("POST"))
+            .and(SendEmailBodyMatcher)
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let result = email_client
+            .send_email(&email(), &subject(), &content())
+            .await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn send_email_fails_if_the_server_returns_500() {
+        let mock_server = MockServer::start().await;
+        let email_client = email_client(mock_server.uri());
+
+        Mock::given(any())
+            .respond_with(ResponseTemplate::new(500))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let result = email_client
+            .send_email(&email(), &subject(), &content())
+            .await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn send_email_times_out_if_the_server_takes_too_long() {
+        let mock_server = MockServer::start().await;
+        let email_client = email_client(mock_server.uri());
+
+        let response = ResponseTemplate::new(200).set_delay(Duration::from_secs(180));
+
+        Mock::given(any())
+            .respond_with(response)
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let result = email_client
+            .send_email(&email(), &subject(), &content())
+            .await;
+
+        assert!(result.is_err());
+    }
+}
