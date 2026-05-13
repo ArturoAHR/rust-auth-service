@@ -31,7 +31,7 @@ use crate::{
 pub type AppStateUserStore = Arc<RwLock<dyn UserStore>>;
 pub type AppStateBannedTokenStore = Arc<RwLock<dyn BannedTokenStore>>;
 pub type AppStateTwoFactorAuthCodeStore = Arc<RwLock<dyn TwoFactorAuthCodeStore>>;
-pub type AppStateEmailClient = Arc<RwLock<dyn EmailClient>>;
+pub type AppStateEmailClient = Arc<dyn EmailClient>;
 
 #[derive(Clone)]
 pub struct AppState {

@@ -37,7 +37,7 @@ async fn main() {
     let two_factor_auth_code_store = Arc::new(RwLock::new(RedisTwoFactorAuthStore::new(
         Arc::clone(&redis_connection),
     )));
-    let email_client = Arc::new(RwLock::new(configure_postmark_email_client()));
+    let email_client = Arc::new(configure_postmark_email_client());
 
     let app_state = AppState::new(
         user_store,

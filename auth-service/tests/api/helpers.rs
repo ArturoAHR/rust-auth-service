@@ -42,7 +42,7 @@ impl TestApp {
         let two_factor_auth_code_store: Arc<RwLock<dyn TwoFactorAuthCodeStore>> = Arc::new(
             RwLock::new(RedisTwoFactorAuthStore::new(Arc::clone(&redis_connection))),
         );
-        let email_client = Arc::new(RwLock::new(MockEmailClient {}));
+        let email_client = Arc::new(MockEmailClient {});
 
         let app_state = AppState::new(
             user_store,

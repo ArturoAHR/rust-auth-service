@@ -97,9 +97,8 @@ async fn handle_2fa(
         .await
         .map_err(AuthApiError::UnexpectedError)?;
 
-    let email_client = state.email_client.read().await;
-
-    email_client
+    state
+        .email_client
         .send_email(
             &email,
             "Two Factor Authentication Code",
