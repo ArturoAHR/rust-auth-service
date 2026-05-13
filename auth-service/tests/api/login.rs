@@ -4,6 +4,10 @@ use auth_service::{
 };
 use secrecy::{ExposeSecret, SecretString};
 use serde_json::json;
+use wiremock::{
+    matchers::{method, path},
+    Mock, ResponseTemplate,
+};
 
 use crate::helpers::{get_random_email, TestApp};
 
@@ -166,6 +170,13 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
     });
 
     let _ = app.post_sign_up(&sign_up_payload).await;
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
 
     let login_payload = json!({
         "email": user_email,

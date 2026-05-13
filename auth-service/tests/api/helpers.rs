@@ -1,14 +1,18 @@
 use std::sync::Arc;
 
 use auth_service::{
-    domain::{BannedTokenStore, TwoFactorAuthCodeStore},
+    domain::{parse::Email, BannedTokenStore, TwoFactorAuthCodeStore},
     get_postgres_pool, get_redis_client,
     services::{
         mock_email_client::MockEmailClient, postgres_user_store::PostgresUserStore,
+        postmark_email_client::PostmarkEmailClient,
         redis_banned_token_store::RedisBannedTokenStore,
         redis_two_factor_auth_code_store::RedisTwoFactorAuthStore,
     },
-    utils::constants::{test::APP_ADDRESS, DATABASE_URL, REDIS_HOST_NAME},
+    utils::constants::{
+        test::{self, APP_ADDRESS},
+        DATABASE_URL, REDIS_HOST_NAME,
+    },
     AppState, Application,
 };
 use reqwest::{cookie::Jar, Client, Response};
@@ -17,6 +21,7 @@ use serde::Serialize;
 use sqlx::{postgres::PgPoolOptions, Connection, PgConnection, PgPool};
 use tokio::sync::RwLock;
 use uuid::Uuid;
+use wiremock::MockServer;
 
 pub struct TestApp {
     pub address: String,
@@ -24,8 +29,9 @@ pub struct TestApp {
     pub client: Client,
     pub banned_token_store: Arc<RwLock<dyn BannedTokenStore>>,
     pub two_factor_auth_code_store: Arc<RwLock<dyn TwoFactorAuthCodeStore>>,
-    database_name: String,
-    cleaned_up: bool,
+    pub email_server: MockServer,
+    pub database_name: String,
+    pub cleaned_up: bool,
 }
 
 impl TestApp {
@@ -35,6 +41,9 @@ impl TestApp {
 
         let database_name = pg_pool.connect_options().get_database().unwrap().to_owned();
 
+        let email_server = MockServer::start().await;
+        let base_url = email_server.uri();
+
         let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
         let banned_token_store: Arc<RwLock<dyn BannedTokenStore>> = Arc::new(RwLock::new(
             RedisBannedTokenStore::new(Arc::clone(&redis_connection)),
@@ -42,7 +51,7 @@ impl TestApp {
         let two_factor_auth_code_store: Arc<RwLock<dyn TwoFactorAuthCodeStore>> = Arc::new(
             RwLock::new(RedisTwoFactorAuthStore::new(Arc::clone(&redis_connection))),
         );
-        let email_client = Arc::new(MockEmailClient {});
+        let email_client = Arc::new(configure_postmark_email_client(base_url));
 
         let app_state = AppState::new(
             user_store,
@@ -71,6 +80,7 @@ impl TestApp {
             client,
             banned_token_store,
             two_factor_auth_code_store,
+            email_server,
             database_name,
             cleaned_up: false,
         }
@@ -227,4 +237,20 @@ fn configure_redis() -> redis::Connection {
         .expect("Failed to get Redis client")
         .get_connection()
         .expect("Failed to get Redis connection")
+}
+
+fn configure_postmark_email_client(base_url: String) -> PostmarkEmailClient {
+    let postmark_auth_token = SecretString::new("auth_token".to_owned().into_boxed_str());
+
+    let sender = Email::parse(SecretString::new(
+        test::email_client::SENDER.to_owned().into_boxed_str(),
+    ))
+    .unwrap();
+
+    let http_client = Client::builder()
+        .timeout(test::email_client::TIMEOUT)
+        .build()
+        .expect("Failed to build HTTP client");
+
+    PostmarkEmailClient::new(base_url, sender, postmark_auth_token, http_client)
 }

@@ -4,6 +4,10 @@ use auth_service::{
 use secrecy::{ExposeSecret, SecretString};
 use serde_json::json;
 use uuid::Uuid;
+use wiremock::{
+    matchers::{method, path},
+    Mock, ResponseTemplate,
+};
 
 use crate::helpers::{get_random_email, TestApp};
 
@@ -77,6 +81,13 @@ async fn should_return_401_if_incorrect_credentials() {
 
     let _ = app.post_sign_up(&sign_up_payload).await;
 
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
     let login_payload = json!({
         "email": user_email,
         "password": user_password
@@ -114,6 +125,13 @@ async fn should_return_401_if_an_old_code_is_used() {
     });
 
     let _ = app.post_sign_up(&sign_up_payload).await;
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(2)
+        .mount(&app.email_server)
+        .await;
 
     let login_payload = json!({
         "email": user_email,
@@ -169,6 +187,13 @@ async fn should_return_200_if_correct_code() {
         "password": user_password
     });
 
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
     let login_response = app.post_login(&login_payload).await;
 
     let two_factor_code_store = app.two_factor_auth_code_store.read().await;
@@ -217,6 +242,13 @@ async fn should_return_401_if_same_code_is_used_twice() {
     });
 
     let _ = app.post_sign_up(&sign_up_payload).await;
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
 
     let login_payload = json!({
         "email": user_email,
