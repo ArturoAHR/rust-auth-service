@@ -1,4 +1,3 @@
-use axum::http::request;
 use color_eyre::eyre::Result;
 use reqwest::{Client, Url};
 use secrecy::{ExposeSecret, SecretString};
@@ -18,7 +17,7 @@ pub struct PostmarkEmailClient {
 }
 
 impl PostmarkEmailClient {
-    fn new(
+    pub fn new(
         base_url: String,
         sender: Email,
         access_token: SecretString,

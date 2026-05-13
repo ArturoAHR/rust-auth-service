@@ -13,10 +13,19 @@ pub const JWT_COOKIE_NAME: &str = "jwt";
 
 pub mod prod {
     pub const APP_ADDRESS: &str = "0.0.0.0:3000";
+
+    pub mod email_client {
+        use std::time::Duration;
+
+        pub const BASE_URL: &str = "https://api.postmarkapp.com/email";
+        pub const SENDER: &str = "bogdan@codeiron.io";
+        pub const TIMEOUT: Duration = Duration::from_secs(10);
+    }
 }
 
 pub mod test {
     pub const APP_ADDRESS: &str = "127.0.0.1:0";
+
     pub mod email_client {
         use std::time::Duration;
 
@@ -38,7 +47,8 @@ lazy_static! {
 fn get_environment_variable(variable_name: &str) -> String {
     dotenv().ok();
 
-    let variable = std::env::var(variable_name).expect("{variable_name} must be set.");
+    let variable =
+        std::env::var(variable_name).expect(format!("{variable_name} must be set.").as_str());
 
     if variable.is_empty() {
         panic!("{variable_name} must not be empty.");
@@ -50,7 +60,8 @@ fn get_environment_variable(variable_name: &str) -> String {
 fn get_secret_environment_variable(variable_name: &str) -> SecretString {
     dotenv().ok();
 
-    let secret = std::env::var(variable_name).expect("{variable_name} must be set.");
+    let secret =
+        std::env::var(variable_name).expect(format!("{variable_name} must be set.").as_str());
 
     if secret.is_empty() {
         panic!("{variable_name} must not be empty.");
